@@ -1,3 +1,4 @@
 [submodule "rapidjson"]
 	path = rapidjson
 	url = https://github.com/cropsinsilico/rapidjson.git
+	branch = yggdrasil
