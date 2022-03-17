@@ -52,9 +52,15 @@ with open('README.rst', encoding='utf-8') as f:
 with open('CHANGES.rst', encoding='utf-8') as f:
     CHANGES = f.read()
 
+class get_numpy_include(object):
+
+    def __str__(self):
+        import numpy
+        return numpy.get_include()
+
 extension_options = {
     'sources': ['./rapidjson.cpp'],
-    'include_dirs': [rj_include_dir],
+    'include_dirs': [rj_include_dir, get_numpy_include()],
     'define_macros': [('PYTHON_RAPIDJSON_VERSION', VERSION)],
     'depends': ['./rapidjson_exact_version.txt'],
 }
@@ -84,6 +90,10 @@ if cxx and 'g++' in cxx:
     if sys.version_info < (3,7):
         extension_options['extra_compile_args'].append('-Wno-write-strings')
 
+# Ensure rapidjson is compiled with yggdrasil
+extension_options.setdefault('extra_compile_args', [])
+extension_options['extra_compile_args'].append('-DRAPIDJSON_YGGDRASIL')
+
 
 setup(
     name='python-rapidjson',
@@ -112,5 +122,7 @@ setup(
         'Programming Language :: Python',
     ],
     ext_modules=[Extension('rapidjson', **extension_options)],
+    setup_requires=['numpy'],
+    install_requires=['numpy'],
     **other_setup_options
 )

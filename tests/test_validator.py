@@ -24,6 +24,8 @@ def test_invalid_json():
 @pytest.mark.parametrize('schema,json', (
     ('{ "type": ["number", "string"] }', '42'),
     ('{ "type": ["number", "string"] }', '"Life, the universe, and everything"'),
+    ({ "type": ["number", "string"] }, 42),
+    ({ "type": ["number", "string"] }, "Life, the universe, and everything"),
 ))
 def test_valid(schema, json):
     validate = rj.Validator(schema)
