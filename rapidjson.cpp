@@ -236,6 +236,9 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
 static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwargs);
 static void normalizer_dealloc(PyObject* self);
 static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
+static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* normalizer_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs);
+static PyObject* normalizer_normalize(PyObject* self, PyObject* args, PyObject* kwargs);
 
 ///////////////////////////////////////////////////
 // Stream wrapper around Python file-like object //
@@ -4303,6 +4306,7 @@ PyDoc_STRVAR(validator_doc,
              "Create and return a new Validator instance from the given `json_schema`"
              " string or Python dictionary.");
 
+
 static PyMethodDef validator_methods[] = {
     {"validate", (PyCFunction) validator_validate,
      METH_VARARGS | METH_KEYWORDS,
@@ -4313,6 +4317,7 @@ static PyMethodDef validator_methods[] = {
      "Validate a schema against the JSON metaschema."},
     {NULL}  /* Sentinel */
 };
+
 
 static PyTypeObject Validator_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -4749,6 +4754,20 @@ PyDoc_STRVAR(normalizer_doc,
              " string or Python dictionary.");
 
 
+static PyMethodDef normalizer_methods[] = {
+    {"validate", (PyCFunction) normalizer_validate,
+     METH_VARARGS | METH_KEYWORDS,
+     "Validate a JSON document."},
+    {"normalize", (PyCFunction) normalizer_normalize,
+     METH_VARARGS | METH_KEYWORDS,
+     "Normalize a JSON document."},
+    {"check_schema", (PyCFunction) normalizer_check_schema,
+     METH_VARARGS | METH_KEYWORDS | METH_CLASS,
+     "Validate a schema against the JSON metaschema."},
+    {NULL}  /* Sentinel */
+};
+
+
 static PyTypeObject Normalizer_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "rapidjson.Normalizer",         /* tp_name */
@@ -4777,7 +4796,7 @@ static PyTypeObject Normalizer_Type = {
     0,                              /* tp_weaklistoffset */
     0,                              /* tp_iter */
     0,                              /* tp_iternext */
-    0,                              /* tp_methods */
+    normalizer_methods,             /* tp_methods */
     0,                              /* tp_members */
     0,                              /* tp_getset */
     0,                              /* tp_base */
@@ -5016,6 +5035,91 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
 
     return (PyObject*) v;
 }
+
+
+static PyObject* normalizer_normalize(PyObject* self, PyObject* args, PyObject* kwargs)
+{ return normalizer_call(self, args, kwargs); }
+
+
+static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* jsonObject;
+
+    if (!PyArg_ParseTuple(args, "O", &jsonObject))
+        return NULL;
+
+    const char* jsonStr;
+    Py_ssize_t jsonStrLen = 0;
+
+    if (PyBytes_Check(jsonObject)) {
+        jsonStr = PyBytes_AsString(jsonObject);
+        if (jsonStr == NULL)
+            return NULL;
+	jsonStrLen = PyBytes_Size(jsonObject);
+    } else if (PyUnicode_Check(jsonObject)) {
+        jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
+        if (jsonStr == NULL)
+            return NULL;
+    } else {
+        jsonStr = NULL;
+    }
+
+    if ((jsonStr != NULL) && (!isJSONDocument(jsonStr, jsonStrLen)))
+	jsonStr = NULL;
+
+    Document d;
+    bool error;
+    ValidatorObject* v = (ValidatorObject*) self;
+
+    if (jsonStr == NULL) {
+        error = (!PythonAccept(&d, jsonObject, v->numberMode, v->datetimeMode,
+			       v->uuidMode, v->bytesMode, v->iterableMode,
+			       v->mappingMode));
+	d.FinalizeFromStack();
+    } else {
+        Py_BEGIN_ALLOW_THREADS
+        error = d.Parse(jsonStr).HasParseError();
+        Py_END_ALLOW_THREADS
+    }
+
+    if (error) {
+        PyErr_SetString(decode_error, "Invalid JSON");
+        return NULL;
+    }
+
+    SchemaValidator validator(*((NormalizerObject*) self)->schema);
+    bool accept;
+
+    Py_BEGIN_ALLOW_THREADS
+    accept = d.Accept(validator);
+    Py_END_ALLOW_THREADS
+
+    if (!accept) {
+        StringBuffer sptr;
+        StringBuffer dptr;
+
+        Py_BEGIN_ALLOW_THREADS
+        validator.GetInvalidSchemaPointer().StringifyUriFragment(sptr);
+        validator.GetInvalidDocumentPointer().StringifyUriFragment(dptr);
+        Py_END_ALLOW_THREADS
+
+        PyObject* error = Py_BuildValue("sss", validator.GetInvalidSchemaKeyword(),
+                                        sptr.GetString(), dptr.GetString());
+        PyErr_SetObject(validation_error, error);
+
+        Py_XDECREF(error);
+        sptr.Clear();
+        dptr.Clear();
+
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+
+static PyObject* normalizer_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs)
+{ return validator_check_schema(cls, args, kwargs); }
 
 
 ////////////
