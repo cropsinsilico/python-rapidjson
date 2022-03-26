@@ -19,6 +19,8 @@ def test_invalid_json():
     validate = rj.Validator('""')
     pytest.raises(rj.JSONDecodeError, validate, '')
     pytest.raises(rj.JSONDecodeError, validate, '"')
+    pytest.raises(rj.JSONDecodeError, validate.validate, '')
+    pytest.raises(rj.JSONDecodeError, validate.validate, '"')
 
 
 @pytest.mark.parametrize('schema,json', (
@@ -30,6 +32,7 @@ def test_invalid_json():
 def test_valid(schema, json):
     validate = rj.Validator(schema)
     validate(json)
+    validate.validate(json)
 
 
 @pytest.mark.parametrize('schema,json,details', (
@@ -42,6 +45,9 @@ def test_invalid(schema, json, details):
     validate = rj.Validator(schema)
     with pytest.raises(ValueError) as error:
         validate(json)
+    assert error.value.args == details
+    with pytest.raises(ValueError) as error:
+        validate.validate(json)
     assert error.value.args == details
 
 
@@ -65,3 +71,4 @@ def test_invalid(schema, json, details):
 def test_additional_and_pattern_properties_valid(schema, json):
     validate = rj.Validator(schema)
     validate(json)
+    validate.validate(json)

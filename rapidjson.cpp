@@ -230,6 +230,7 @@ static PyObject* encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwarg
 static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs);
 static void validator_dealloc(PyObject* self);
 static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
+static PyObject* validator_validate(PyObject* self, PyObject* args, PyObject* kwargs);
 
 static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwargs);
 static void normalizer_dealloc(PyObject* self);
@@ -4301,7 +4302,13 @@ PyDoc_STRVAR(validator_doc,
              "Create and return a new Validator instance from the given `json_schema`"
              " string or Python dictionary.");
 
-
+static PyMethodDef validator_methods[] = {
+    {"validate", (PyCFunction) validator_validate,
+     METH_VARARGS | METH_KEYWORDS,
+     "Validate a JSON document."
+    },
+    {NULL}  /* Sentinel */
+};
 static PyTypeObject Validator_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "rapidjson.Validator",          /* tp_name */
@@ -4330,7 +4337,7 @@ static PyTypeObject Validator_Type = {
     0,                              /* tp_weaklistoffset */
     0,                              /* tp_iter */
     0,                              /* tp_iternext */
-    0,                              /* tp_methods */
+    validator_methods,              /* tp_methods */
     0,                              /* tp_members */
     0,                              /* tp_getset */
     0,                              /* tp_base */
@@ -4420,7 +4427,6 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
 
     Py_RETURN_NONE;
 }
-
 
 static void validator_dealloc(PyObject* self)
 {
@@ -4556,6 +4562,9 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
 
     return (PyObject*) v;
 }
+
+static PyObject* validator_validate(PyObject* self, PyObject* args, PyObject* kwargs)
+{ return validator_call(self, args, kwargs); }
 
 
 ////////////////
