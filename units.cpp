@@ -34,6 +34,7 @@ static PyObject* units_richcompare(PyObject *self, PyObject *other, int op);
 static void quantity_dealloc(PyObject* self);
 static PyObject* quantity_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* quantity_str(PyObject* self);
+static PyObject* quantity_repr(PyObject* self);
 static PyObject* quantity_units_get(PyObject* self, void* closure);
 static int quantity_units_set(PyObject* self, PyObject* value, void* closure);
 static PyObject* quantity_value_get(PyObject* type, void* closure);
@@ -46,8 +47,17 @@ static PyObject* quantity_richcompare(PyObject *self, PyObject *other, int op);
 static PyObject* quantity_add(PyObject *a, PyObject *b);
 static PyObject* quantity_subtract(PyObject *a, PyObject *b);
 static PyObject* quantity_multiply(PyObject *a, PyObject *b);
-// static PyObject* quantity_divide(PyObject *a, PyObject *b);
+static PyObject* quantity_divide(PyObject *a, PyObject *b);
+static PyObject* quantity_modulo(PyObject *a, PyObject *b);
 static PyObject* quantity_power(PyObject *base, PyObject *exp, PyObject *mod);
+static PyObject* quantity_floor_divide(PyObject *a, PyObject *b);
+static PyObject* quantity_add_inplace(PyObject *a, PyObject *b);
+static PyObject* quantity_subtract_inplace(PyObject *a, PyObject *b);
+static PyObject* quantity_multiply_inplace(PyObject *a, PyObject *b);
+static PyObject* quantity_divide_inplace(PyObject *a, PyObject *b);
+static PyObject* quantity_modulo_inplace(PyObject *a, PyObject *b);
+static PyObject* quantity_floor_divide_inplace(PyObject *a, PyObject *b);
+static PyObject* quantity_power_inplace(PyObject *base, PyObject *exp, PyObject *mod);
 
 
 ///////////////
@@ -392,7 +402,7 @@ std::complex<double>* PyObject_GetScalarYgg<std::complex<double> >(PyObject*, Qu
     }
 
 #define EXTRACT_PYTHON_VALUE_TYPE(var, pyObj, tmp, method, args, T)	\
-    if (T* tmp = PyObject_GetScalarYgg<T>(pyObj, var->subtype)) {	\
+    if (T* tmp = PyObject_GetScalarYgg<T>(pyObj, var)) {		\
 	method<T> args;							\
     }
 
@@ -451,46 +461,46 @@ static PyGetSetDef quantity_properties[] = {
 
 
 static PyNumberMethods quantity_number_methods = {
-    quantity_add,        /* nb_add */
-    quantity_subtract,   /* nb_subtract */
-    quantity_multiply,   /* nb_multiply */
-    0,                   /* nb_remainder */
-    0,                   /* nb_divmod */
-    quantity_power,      /* nb_power */
-    0,                   /* nb_negative */
-    0,                   /* nb_positive */
-    0,                   /* nb_absolute */
-    0,                   /* nb_bool */
-    0,                   /* nb_invert */
-    0,                   /* nb_lshift */
-    0,                   /* nb_rshift */
-    0,                   /* nb_and */
-    0,                   /* nb_xor */
-    0,                   /* nb_or */
-    0,                   /* nb_int */
-    0,                   /* nb_reserved */
-    0,                   /* nb_float */
+    quantity_add,                   /* nb_add */
+    quantity_subtract,              /* nb_subtract */
+    quantity_multiply,              /* nb_multiply */
+    quantity_modulo,                /* nb_remainder */
+    0,                              /* nb_divmod */
+    quantity_power,                 /* nb_power */
+    0,                              /* nb_negative */
+    0,                              /* nb_positive */
+    0,                              /* nb_absolute */
+    0,                              /* nb_bool */
+    0,                              /* nb_invert */
+    0,                              /* nb_lshift */
+    0,                              /* nb_rshift */
+    0,                              /* nb_and */
+    0,                              /* nb_xor */
+    0,                              /* nb_or */
+    0,                              /* nb_int */
+    0,                              /* nb_reserved */
+    0,                              /* nb_float */
     //
-    0,                   /* nb_inplace_add */
-    0,                   /* nb_inplace_subtract */
-    0,                   /* nb_inplace_multiply */
-    0,                   /* nb_inplace_remainder */
-    0,                   /* nb_inplace_power */
-    0,                   /* nb_inplace_lshift */
-    0,                   /* nb_inplace_rshift */
-    0,                   /* nb_inplace_and */
-    0,                   /* nb_inplace_xor */
-    0,                   /* nb_inplace_or */
+    quantity_add_inplace,           /* nb_inplace_add */
+    quantity_subtract_inplace,      /* nb_inplace_subtract */
+    quantity_multiply_inplace,      /* nb_inplace_multiply */
+    quantity_modulo_inplace,        /* nb_inplace_remainder */
+    quantity_power_inplace,         /* nb_inplace_power */
+    0,                              /* nb_inplace_lshift */
+    0,                              /* nb_inplace_rshift */
+    0,                              /* nb_inplace_and */
+    0,                              /* nb_inplace_xor */
+    0,                              /* nb_inplace_or */
     //
-    0,                   /* nb_floor_divide */
-    0,                   /* nb_true_divide */
-    0,                   /* nb_inplace_floor_divide */
-    0,                   /* nb_inplace_true_divide */
+    quantity_floor_divide,          /* nb_floor_divide */
+    quantity_divide,                /* nb_true_divide */
+    quantity_floor_divide_inplace,  /* nb_inplace_floor_divide */
+    quantity_divide_inplace,        /* nb_inplace_true_divide */
     //
-    0,                   /* nb_index */
+    0,                              /* nb_index */
     //
-    0,                   /* nb_matrix_multiply */
-    0,                   /* nb_inplace_matrix_multiply */
+    0,                              /* nb_matrix_multiply */
+    0,                              /* nb_inplace_matrix_multiply */
 };
 
 
@@ -504,7 +514,7 @@ static PyTypeObject Quantity_Type = {
     0,                              /* tp_getattr */
     0,                              /* tp_setattr */
     0,                              /* tp_compare */
-    0,                              /* tp_repr */
+    quantity_repr,                  /* tp_repr */
     &quantity_number_methods,       /* tp_as_number */
     0,                              /* tp_as_sequence */
     0,                              /* tp_as_mapping */
@@ -547,7 +557,10 @@ static void quantity_dealloc(PyObject* self)
 
 template<typename T>
 void assign_scalar_(QuantityObject* v, T* val, Units* units=nullptr) {
-    v->quantity = (void*)(new Quantity<T>(*val, *units));
+    if (units)
+	v->quantity = (void*)(new Quantity<T>(*val, *units));
+    else
+	v->quantity = (void*)(new Quantity<T>(*val));
     delete val;
 }
 
@@ -555,7 +568,7 @@ void assign_scalar_(QuantityObject* v, T* val, Units* units=nullptr) {
 static PyObject* quantity_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 {
     PyObject* valueObject;
-    PyObject* unitsObject;
+    PyObject* unitsObject = NULL;
     static char const* kwlist[] = {
 	"value",
 	"units",
@@ -571,7 +584,7 @@ static PyObject* quantity_new(PyTypeObject* type, PyObject* args, PyObject* kwar
     if (v == NULL)
         return NULL;
 
-    if (!valueObject) {
+    if (valueObject == NULL) {
 	PyErr_SetString(PyExc_TypeError, "Invalid value");
 	return NULL;
     }
@@ -580,17 +593,17 @@ static PyObject* quantity_new(PyTypeObject* type, PyObject* args, PyObject* kwar
 	QuantityObject* vother = (QuantityObject*)valueObject;
 	v->subtype = vother->subtype;
 	SWITCH_QUANTITY_SUBTYPE(vother, v->quantity = , ->copy_void());
-    } else if (unitsObject) {
+    } else if (unitsObject != NULL) {
 	PyObject* units_args = PyTuple_Pack(1, unitsObject);
 	unitsObject = PyObject_Call((PyObject*)&Units_Type, units_args, NULL);
 	Py_DECREF(units_args);
 	if (unitsObject == NULL)
 	    return NULL;
-	EXTRACT_PYTHON_VALUE(v, valueObject, val, assign_scalar_,
+	EXTRACT_PYTHON_VALUE(v->subtype, valueObject, val, assign_scalar_,
 			     (v, val, ((UnitsObject*)unitsObject)->units),
 			     { PyErr_SetString(PyExc_TypeError, "Expected scalar integer, floating point, or complex value"); return NULL; })
     } else {
-	EXTRACT_PYTHON_VALUE(v, valueObject, val, assign_scalar_,
+	EXTRACT_PYTHON_VALUE(v->subtype, valueObject, val, assign_scalar_,
 			     (v, val),
 			     { PyErr_SetString(PyExc_TypeError, "Expected scalar integer, floating point, or complex value"); return NULL; })
     }
@@ -604,6 +617,14 @@ static PyObject* quantity_str(PyObject* self) {
     std::string s;
     SWITCH_QUANTITY_SUBTYPE(v, s = , ->str());
     return PyUnicode_FromString(s.c_str());
+}
+
+
+static PyObject* quantity_repr(PyObject* self) {
+    QuantityObject* v = (QuantityObject*) self;
+    std::basic_stringstream<char> ss;
+    SWITCH_QUANTITY_SUBTYPE(v, , ->display(ss));
+    return PyUnicode_FromString(ss.str().c_str());
 }
 
 
@@ -813,38 +834,73 @@ enum BinaryOps {
     binaryOpAdd,
     binaryOpSubtract,
     binaryOpMultiply,
-    binaryOpDivide
+    binaryOpDivide,
+    binaryOpModulo,
+    binaryOpFloorDivide,
 };
 
 
 template <typename Ta, typename Tb>
 static void* do_quantity_op(Quantity<Ta>* a, Quantity<Tb>* b, BinaryOps op,
+			    bool inplace=false,
 			    RAPIDJSON_DISABLEIF((YGGDRASIL_IS_CASTABLE(Tb, Ta)))) {
     SET_ERROR(units_error, "Incompatible Quantity value types.", NULL);
 }
 template <typename Ta, typename Tb>
 static void* do_quantity_op(Quantity<Ta>* a, Quantity<Tb>* b, BinaryOps op,
+			    bool inplace=false,
 			    RAPIDJSON_ENABLEIF((YGGDRASIL_IS_CASTABLE(Tb, Ta)))) {
-    Quantity<Ta>* out = new Quantity<Ta>();
+    Quantity<Ta>* out;
+    if (inplace)
+	out = a;
+    else
+	out = new Quantity<Ta>();
     switch (op) {
     case (binaryOpAdd): {
 	if (!a->is_compatible(*b))
 	    SET_ERROR(units_error, "Cannot add Quantity instances with incompatible units", NULL)
-	*out = *a + *b;
+	if (inplace)
+	    *out += *b;
+	else
+	    *out = *a + *b;
 	break;
     }
     case (binaryOpSubtract): {
 	if (!a->is_compatible(*b))
 	    SET_ERROR(units_error, "Cannot subtract Quantity instances with incompatible units", NULL)
-	*out = *a - *b;
+	if (inplace)
+	    *out -= *b;
+	else
+	    *out = *a - *b;
 	break;
     }
     case (binaryOpMultiply): {
-	*out = *a * *b;
+	if (inplace)
+	    *out *= *b;
+	else
+	    *out = *a * *b;
 	break;
     }
     case (binaryOpDivide): {
-	*out = *a / *b;
+	if (inplace)
+	    *out /= *b;
+	else
+	    *out = *a / *b;
+	break;
+    }
+    case (binaryOpModulo): {
+	if (inplace)
+	    *out %= *b;
+	else
+	    *out = *a % *b;
+	break;
+    }
+    case (binaryOpFloorDivide): {
+	if (inplace)
+	    *out /= *b;
+	else
+	    *out = *a / *b;
+	out->floor_inplace();
 	break;
     }
     }
@@ -853,19 +909,29 @@ static void* do_quantity_op(Quantity<Ta>* a, Quantity<Tb>* b, BinaryOps op,
 
 
 template <typename Tb>
-static void* do_quantity_op_lvl2(Quantity<Tb>* b, QuantityObject* va, BinaryOps op) {
-    SWITCH_QUANTITY_SUBTYPE_CALL(va, return do_quantity_op, b, op)
+static void* do_quantity_op_lvl2(Quantity<Tb>* b, QuantityObject* va, BinaryOps op,
+				 bool inplace=false) {
+    SWITCH_QUANTITY_SUBTYPE_CALL(va, return do_quantity_op, b, op, inplace)
 }
 
 
-static PyObject* do_quantity_op_lvl1(PyObject *a, PyObject *b, BinaryOps op) {
+static PyObject* do_quantity_op_lvl1(PyObject *a, PyObject *b, BinaryOps op,
+				     bool inplace=false) {
+    // if (inplace && !PyObject_IsInstance(a, (PyObject*)&Quantity_Type) && PyObject_IsInstance(b, (PyObject*)&Quantity_Type))
+    // 	return do_quantity_op_lvl1(b, a, op, true);
     QuantityObject* va = get_quantity(a);
     QuantityObject* vb = get_quantity(b);
     if ((va == NULL) || (vb == NULL))
 	return NULL;
-    QuantityObject* out = (QuantityObject*) Quantity_Type.tp_alloc(&Quantity_Type, 0);
-    out->subtype = va->subtype;
-    SWITCH_QUANTITY_SUBTYPE_CALL(vb, out->quantity = do_quantity_op_lvl2, va, op);
+    QuantityObject* out;
+    if (inplace && PyObject_IsInstance(a, (PyObject*)&Quantity_Type)) {
+	out = va;
+	Py_INCREF(a);
+    } else {
+	out = (QuantityObject*) Quantity_Type.tp_alloc(&Quantity_Type, 0);
+	out->subtype = va->subtype;
+    }
+    SWITCH_QUANTITY_SUBTYPE_CALL(vb, out->quantity = do_quantity_op_lvl2, va, op, inplace)
     if (out->quantity == NULL)
 	return NULL;
     return (PyObject*) out;
@@ -878,13 +944,84 @@ static PyObject* quantity_subtract(PyObject *a, PyObject *b)
 { return do_quantity_op_lvl1(a, b, binaryOpSubtract); }
 static PyObject* quantity_multiply(PyObject *a, PyObject *b)
 { return do_quantity_op_lvl1(a, b, binaryOpMultiply); }
-// static PyObject* quantity_divide(PyObject *a, PyObject *b)
-// { return do_quantity_op_lvl1(a, b, binaryOpDivide); }
-static PyObject* quantity_power(PyObject *base, PyObject *exp, PyObject *mod) {
-    if (PyObject_IsInstance(exp, (PyObject*)&Quantity_Type))
-	SET_ERROR(units_error, "Raising to a Quantity power not supported", NULL);
+static PyObject* quantity_divide(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpDivide); }
+static PyObject* quantity_floor_divide(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpFloorDivide); }
+static PyObject* quantity_modulo(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpModulo); }
+static PyObject* quantity_add_inplace(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpAdd, true); }
+static PyObject* quantity_subtract_inplace(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpSubtract, true); }
+static PyObject* quantity_multiply_inplace(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpMultiply, true); }
+static PyObject* quantity_divide_inplace(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpDivide, true); }
+static PyObject* quantity_modulo_inplace(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpModulo, true); }
+static PyObject* quantity_floor_divide_inplace(PyObject *a, PyObject *b)
+{ return do_quantity_op_lvl1(a, b, binaryOpFloorDivide, true); }
+
+template<typename Tbase, typename Tmod, typename T>
+static void* quantity_power_lvl4(Quantity<Tbase>* base, Quantity<Tmod>* mod, T* val,
+				 bool inplace=false) {
+    Quantity<Tbase>* out;
+    if (inplace) {
+	out = base;
+	out->inplace_pow(*val);
+    } else {
+	out = new Quantity<Tbase>();
+	*out = base->pow(*val);
+    }
+    *out %= *mod;
+    return (void*)out;
+}
+template<typename Tbase, typename Tmod, typename T>
+static void* quantity_power_lvl4(Quantity<Tbase>* base, Quantity<Tmod>* mod, std::complex<T>* val,
+				 bool inplace=false) {
+    PyErr_SetString(PyExc_TypeError, "Complex exponent not supported");
     return NULL;
 }
+template<typename Tmod, typename T>
+static void* quantity_power_lvl3(Quantity<Tmod>* mod, T* val, QuantityObject* vbase,
+				 bool inplace=false) {
+    SWITCH_QUANTITY_SUBTYPE_CALL(vbase, return quantity_power_lvl4, mod, val, inplace);
+}
+template<typename T>
+static void* quantity_power_lvl2(T* val, QuantityObject* vbase, QuantityObject* vmod,
+				 bool inplace=false) {
+    SWITCH_QUANTITY_SUBTYPE_CALL(vmod, return quantity_power_lvl3, val, vbase, inplace);
+}
+static PyObject* quantity_power_lvl1(PyObject *base, PyObject *exp, PyObject *mod,
+				     bool inplace=false) {
+    QuantityObject* vbase = get_quantity(base);
+    QuantityObject* vmod = get_quantity(mod);
+    if ((vbase == NULL) || (vmod == NULL))
+	return NULL;
+    if (PyObject_IsInstance(exp, (PyObject*)&Quantity_Type))
+	SET_ERROR(units_error, "Raising to a Quantity power not supported", NULL);
+    QuantityObject* out;
+    if (inplace && PyObject_IsInstance(base, (PyObject*)&Quantity_Type)) {
+	out = vbase;
+	Py_INCREF(base);
+    } else {
+	out = (QuantityObject*) Quantity_Type.tp_alloc(&Quantity_Type, 0);
+	out->subtype = vbase->subtype;
+    }
+    QuantitySubType subtype_exp;
+    EXTRACT_PYTHON_VALUE(subtype_exp, exp, tmp,
+			 out->quantity = quantity_power_lvl2,
+			 (tmp, vbase, vmod, inplace),
+			 { PyErr_SetString(PyExc_TypeError, "Expected scalar integer, floating point, or complex value"); return NULL; })
+    if (out->quantity == NULL)
+	return NULL;
+    return (PyObject*) out;
+}
+static PyObject* quantity_power(PyObject *base, PyObject *exp, PyObject *mod)
+{ return quantity_power_lvl1(base, exp, mod); }
+static PyObject* quantity_power_inplace(PyObject *base, PyObject *exp, PyObject *mod)
+{ return quantity_power_lvl1(base, exp, mod, true); }
 
 
 ////////////

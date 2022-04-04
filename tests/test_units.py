@@ -72,7 +72,11 @@ def test_Units_is_compatible(u1, u2, compat):
     (int(3), 'g')
 ])
 def test_Quantity(v, u):
-    print(str(units.Quantity(v, u)))
+    str(units.Quantity(v, u))
+
+
+def test_Quantity_no_units():
+    str(units.Quantity(1.0))
 
 
 @pytest.mark.parametrize('u1,u2,compat', compat_param)
@@ -114,6 +118,12 @@ def test_Quantity_add(v1, u1, v2, u2, vExp, uExp):
     exp = units.Quantity(vExp, uExp)
     assert (x1 + x2) == exp
     assert (x2 + x1).is_equivalent(exp)
+    with pytest.raises(units.UnitsError):
+        x1 + 1
+    with pytest.raises(units.UnitsError):
+        1 + x1
+    x1 += x2
+    assert x1 == exp
 
 
 @pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
@@ -125,6 +135,12 @@ def test_Quantity_subtract(v1, u1, v2, u2, vExp, uExp):
     x2 = units.Quantity(v2, u2)
     exp = units.Quantity(vExp, uExp)
     assert (x1 - x2) == exp
+    with pytest.raises(units.UnitsError):
+        x1 - 1
+    with pytest.raises(units.UnitsError):
+        1 - x1
+    x1 -= x2
+    assert x1 == exp
 
 
 @pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
@@ -136,5 +152,44 @@ def test_Quantity_multiply(v1, u1, v2, u2, vExp, uExp):
     x1 = units.Quantity(v1, u1)
     x2 = units.Quantity(v2, u2)
     exp = units.Quantity(vExp, uExp)
-    assert (x1 * x2).is_equivalent(exp)
+    assert (x1 * x2) == exp
     assert (x2 * x1).is_equivalent(exp)
+    exp_scalar = units.Quantity(v1 * 2, u1)
+    assert (2 * x1) == exp_scalar
+    assert exp_scalar == (x1 * 2)
+    x1 *= x2
+    assert x1 == exp
+
+
+@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
+    (1.0, "m", 50.0, "s", 0.02, "m/s"),
+    (100.0, "cm", 0.5, "m", 2.0, ""),
+    (0.5, "m", 100.0, "cm", 0.5, ""),
+])
+def test_Quantity_divide(v1, u1, v2, u2, vExp, uExp):
+    x1 = units.Quantity(v1, u1)
+    x2 = units.Quantity(v2, u2)
+    exp = units.Quantity(vExp, uExp)
+    assert (x1 / x2) == exp
+    exp_scalar = units.Quantity(v1 / 2, u1)
+    assert (x1 / 2) == exp_scalar
+    assert exp_scalar == (x1 / 2)
+    x1 /= x2
+    assert x1 == exp
+
+
+@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
+    (100.0, "cm", 0.4, "m", 20.0, "cm"),
+    (0.5, "m", 100.0, "cm", 0.5, "m"),
+    (0.402, "m**2", 100.0, "cm**2", 0.002, "m**2"),
+])
+def test_Quantity_modulus(v1, u1, v2, u2, vExp, uExp):
+    x1 = units.Quantity(v1, u1)
+    x2 = units.Quantity(v2, u2)
+    exp = units.Quantity(vExp, uExp)
+    assert (x1 % x2) == exp
+    exp_scalar = units.Quantity(v1 % 7, u1)
+    assert (x1 % 7) == exp_scalar
+    assert exp_scalar == (x1 % 7)
+    x1 %= x2
+    assert x1 == exp
