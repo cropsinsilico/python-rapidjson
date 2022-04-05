@@ -681,10 +681,8 @@ static PyObject* quantity_is_compatible(PyObject* self, PyObject* args, PyObject
     } else {
 	other = (UnitsObject*)PyObject_Call((PyObject*)&Units_Type, args, NULL);
     }
-    if (other == NULL) {
-        PyErr_SetString(PyExc_TypeError, "Expected a units instance");
+    if (other == NULL)
         return NULL;
-    }
     
     QuantityObject* v = (QuantityObject*) self;
     bool result = false;
