@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # :Project:   python-rapidjson -- Normalizer class tests
-# :Author:    Lele Gaifax <lele@metapensiero.it>
+# :Author:    Meagan Lang <langmm.astro@gmail.com>
 # :License:   MIT License
 # :Copyright: © 2017, 2019, 2020 Lele Gaifax
 #
@@ -56,4 +56,24 @@ def test_invalid(schema, json, details):
     assert error.value.args == details
     with pytest.raises(ValueError) as error:
         normalizer.validate(json)
+    assert error.value.args == details
+
+
+@pytest.mark.parametrize('schema', (
+    '{ "type": ["number", "string"] }',
+    {"type": ["number", "string"]},
+    '{ "type": "instance" }',
+    {"type": "instance"}
+))
+def test_check_schema(schema):
+    rj.Normalizer.check_schema(schema)
+
+
+@pytest.mark.parametrize('schema,details', (
+    ('{ "type": 3 }', ('schema', '#', '#')),
+    ({"type": 3}, ('schema', '#', '#')),
+))
+def test_check_schema_invalid(schema, details):
+    with pytest.raises(ValueError) as error:
+        rj.Normalizer.check_schema(schema)
     assert error.value.args == details

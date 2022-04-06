@@ -79,6 +79,8 @@ def test_additional_and_pattern_properties_valid(schema, json):
 @pytest.mark.parametrize('schema', (
     '{ "type": ["number", "string"] }',
     {"type": ["number", "string"]},
+    '{ "type": "instance" }',
+    {"type": "instance"}
 ))
 def test_check_schema(schema):
     rj.Validator.check_schema(schema)

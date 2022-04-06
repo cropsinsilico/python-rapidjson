@@ -5,7 +5,10 @@
 # :Copyright: © 2016, 2017, 2018 Lele Gaifax
 #
 
+import pytest
 import io
+import sys
+import os
 import rapidjson as rj
 
 
@@ -71,3 +74,33 @@ def pytest_generate_tests(metafunc):
                 'class[string]',
                 'class[bytestream]',
                 'class[textstream]'))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def rapidjson_test_module_on_path():
+    ret = os.path.abspath(os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), 'rapidjson', 'test'))
+    sys.path.insert(0, ret)
+    yield
+    sys.path.pop(0)
+
+
+@pytest.fixture(scope="session")
+def rapidjson_test_module(rapidjson_test_module_on_path):
+    import example_python
+    return example_python
+
+
+@pytest.fixture
+def example_class(rapidjson_test_module):
+    return rapidjson_test_module.ExampleClass
+
+
+@pytest.fixture
+def example_function(rapidjson_test_module):
+    return rapidjson_test_module.example_function
+
+
+@pytest.fixture
+def example_instance(example_class):
+    return example_class(1, 'b', c=2, d='d')
