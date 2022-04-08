@@ -21,6 +21,8 @@
 #include <string>
 #include <vector>
 
+#define RAPIDJSON_FORCE_IMPORT_ARRAY
+#include "rapidjson/pyrj.h"
 #include "rapidjson/reader.h"
 #include "rapidjson/schema.h"
 #include "rapidjson/stringbuffer.h"
@@ -3074,17 +3076,24 @@ PythonAccept(
 		 PyDate_Check(object) ||
 		 PyObject_TypeCheck(object, (PyTypeObject*) uuid_type) ||
 		 PyIter_Check(object))) {
+	// PythonAccept
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value();
 	bool ret = x->SetPythonObjectRaw(object, &allocator);
+	// if (ret && !(x->Accept(*handler))) {
+	//     PyErr_Format(PyExc_TypeError, "%R could not be serialized", object);
+	//     delete x;
+	//     return false;
+	// }
 	if (ret)
 	    ret = x->Accept(*handler);
-	if (!ret)
-	    PyErr_Format(PyExc_TypeError, "%R is not JSON serializable", object);
 	delete x;
+	if (!ret && !PyErr_Occurred())
+	    PyErr_Format(PyExc_TypeError, "%R is not JSON serializable", object);
 	return ret;
     } else {
-	PyErr_Format(PyExc_TypeError, "%R is not JSON serializable", object);
+	if (!PyErr_Occurred())
+	    PyErr_Format(PyExc_TypeError, "%R is not JSON serializable", object);
 	return false;
     }
 
@@ -3757,8 +3766,13 @@ dumps_internal(
         writer->RawValue(jsonStr, (SizeType) l, kStringType);
     } else if (defaultFn) {
         PyObject* retval = PyObject_CallFunctionObjArgs(defaultFn, object, NULL);
-        if (retval == NULL)
-            return false;
+        if (retval == NULL) {
+	    bool r = PythonAccept(writer, object, numberMode, datetimeMode, uuidMode,
+				  bytesMode, iterableMode, mappingMode);
+	    if (r)
+		PyErr_Clear();
+            return r;
+	}
         if (Py_EnterRecursiveCall(" while JSONifying default function result")) {
             Py_DECREF(retval);
             return false;
@@ -5613,5 +5627,7 @@ static PyModuleDef module = {
 PyMODINIT_FUNC
 PyInit_rapidjson()
 {
-    return PyModuleDef_Init(&module);
+    import_array();
+    PyObject* out = PyModuleDef_Init(&module);
+    return out;
 }
