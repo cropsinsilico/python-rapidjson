@@ -1666,14 +1666,10 @@ struct PyHandler {
     template <typename YggSchemaValueType>
     bool YggdrasilString(const char* str, SizeType length, bool copy, YggSchemaValueType& schema) {
 	PyObject* value = NULL;
-	typename YggSchemaValueType::ConstMemberIterator vs = schema.FindMember(YggSchemaValueType::GetTypeString());
-	if (vs != schema.MemberEnd()) {
-	    // TODO: scalar, array, ply, obj
-	    if ((vs->value == YggSchemaValueType::GetPythonClassString()) ||
-		(vs->value == YggSchemaValueType::GetPythonFunctionString())) {
-		value = import_python_object(str, "YggdrasilString");
-	    }
-	}
+	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+	Value* x = new Value(str, length, allocator, schema);
+	value = x->GetPythonObjectRaw();
+	delete x;
 	if (value)
 	    return Handle(value);
 	return false;
