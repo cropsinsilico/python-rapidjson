@@ -193,3 +193,38 @@ def test_Quantity_modulus(v1, u1, v2, u2, vExp, uExp):
     assert exp_scalar == (x1 % 7)
     x1 %= x2
     assert x1 == exp
+
+
+@pytest.mark.parametrize('v1,u1,u,vExp,uExp', [
+    (1.0, "m", "cm", 100.0, "cm"),
+    (int(1), "mol", "umol", int(1e6), "umol")
+])
+def test_Quantity_set_get_units(v1, u1, u, vExp, uExp):
+    x1 = units.Quantity(v1, u1)
+    uSet = units.Units(u)
+    x1.units = uSet
+    exp = units.Quantity(vExp, uExp)
+    assert x1 == exp
+    assert x1.units == uSet
+
+
+@pytest.mark.parametrize('v1,u1,v,vExp,uExp', [
+    (1.0, "m", 100.0, 100.0, "m"),
+    (int(1), "mol", int(1e6), int(1e6), "mol")
+])
+def test_Quantity_set_get_value(v1, u1, v, vExp, uExp):
+    x1 = units.Quantity(v1, u1)
+    x1.value = v
+    exp = units.Quantity(vExp, uExp)
+    assert x1 == exp
+    assert x1.value == v
+
+
+@pytest.mark.parametrize('v1,u1', (
+    (100.0, "cm"),
+    ))
+def test_Quantity_serialize(loads, dumps, v1, u1):
+    value = units.Quantity(v1, u1)
+    dumped = dumps(value)
+    loaded = loads(dumped)
+    assert loaded == value and type(loaded) is type(value)

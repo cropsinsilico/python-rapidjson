@@ -1668,7 +1668,43 @@ struct PyHandler {
 	PyObject* value = NULL;
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value(str, length, allocator, schema);
-	value = x->GetPythonObjectRaw();
+	if (x->HasUnits()) {
+	    if (x->IsScalar()) {
+		QuantityObject* v = (QuantityObject*) Quantity_Type.tp_alloc(&Quantity_Type, 0);
+		value = (PyObject*)v;
+		int typenum = x->GetSubTypeNumpyType();
+#define SET_QUANTITY_(npT, T, subT)					\
+		case (npT): {						\
+		    v->subtype = subT;					\
+		    v->quantity = x->GetScalarQuantity<T>().copy_void(); \
+		    break;						\
+		}
+		switch (typenum) {
+		SET_QUANTITY_(NPY_INT8  , int8_t  , kInt8QuantitySubType)
+		SET_QUANTITY_(NPY_INT16 , int16_t , kInt16QuantitySubType)
+		SET_QUANTITY_(NPY_INT32 , int32_t , kInt32QuantitySubType)
+		SET_QUANTITY_(NPY_INT64 , int64_t , kInt64QuantitySubType)
+		SET_QUANTITY_(NPY_UINT8 , uint8_t , kUint8QuantitySubType)
+		SET_QUANTITY_(NPY_UINT16, uint16_t, kUint16QuantitySubType)
+		SET_QUANTITY_(NPY_UINT32, uint32_t, kUint32QuantitySubType)
+		SET_QUANTITY_(NPY_UINT64, uint64_t, kUint64QuantitySubType)
+		SET_QUANTITY_(NPY_FLOAT16, float, kFloatQuantitySubType)
+		SET_QUANTITY_(NPY_FLOAT32, float, kFloatQuantitySubType)
+		SET_QUANTITY_(NPY_FLOAT64, double, kDoubleQuantitySubType)
+		SET_QUANTITY_(NPY_COMPLEX64 , std::complex<float>, kComplexFloatQuantitySubType)
+		SET_QUANTITY_(NPY_COMPLEX128, std::complex<double>, kComplexDoubleQuantitySubType)
+		default:
+		    std::cerr << "Unhandled numpy type" << std::endl;
+		    Py_TYPE(value)->tp_free(value);
+		    value = NULL;
+		}
+#undef SET_QUANTITY_
+	    } else {
+		std::cerr << "Handle quantity array" << std::endl;
+	    }
+	} else {
+	    value = x->GetPythonObjectRaw();
+	}
 	delete x;
 	if (value)
 	    return Handle(value);
@@ -3056,6 +3092,20 @@ PythonAccept(
             return false;
         ASSERT_VALID_SIZE(l);
         handler->String(jsonStr, (SizeType) l, true);
+    } else if (PyObject_IsInstance(object, (PyObject*)&Quantity_Type)) {
+	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+	QuantityObject* v = (QuantityObject*) object;
+	SizeType nelements = 1;
+	Value* x = new Value();
+	bool ret = false;
+	SWITCH_QUANTITY_SUBTYPE_CALL(v, ret = x->SetNDArrayRaw,
+				     &nelements, 0, &allocator)
+	if (ret)
+	    ret = x->Accept(*handler);
+	delete x;
+	if (!ret)
+	    PyErr_Format(PyExc_TypeError, "Error serializing Quantity");
+	return ret;
     } else if (!((object == Py_None) ||
 		 PyBool_Check(object) ||
 		 PyObject_IsInstance(object, decimal_type) ||
@@ -3076,11 +3126,6 @@ PythonAccept(
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value();
 	bool ret = x->SetPythonObjectRaw(object, &allocator);
-	// if (ret && !(x->Accept(*handler))) {
-	//     PyErr_Format(PyExc_TypeError, "%R could not be serialized", object);
-	//     delete x;
-	//     return false;
-	// }
 	if (ret)
 	    ret = x->Accept(*handler);
 	delete x;

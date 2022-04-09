@@ -278,6 +278,40 @@ enum QuantitySubType {
 };
 
 
+#define NUMPY_FROMSCALARYGG(npT, T)				\
+    template<>							\
+    PyObject* PyObject_FromScalarYgg(T& v) {			\
+	PyArray_Descr* desc = PyArray_DescrNewFromType(npT);	\
+	if (desc == NULL)					\
+	    return NULL;					\
+	return PyArray_Scalar((void*)(&v), desc, NULL);		\
+    }
+template<typename T>
+PyObject* PyObject_FromScalarYgg(T& v) {
+    return NULL;
+}
+// template<>
+// PyObject* PyObject_FromScalarYgg(float& v) {
+//     return PyFloat_FromDouble((double)v);
+// }
+// template<>
+// PyObject* PyObject_FromScalarYgg(double& v) {
+//     return PyFloat_FromDouble(v);
+// }
+NUMPY_FROMSCALARYGG(NPY_INT8, int8_t)
+NUMPY_FROMSCALARYGG(NPY_INT16, int16_t)
+NUMPY_FROMSCALARYGG(NPY_INT32, int32_t)
+NUMPY_FROMSCALARYGG(NPY_INT64, int64_t)
+NUMPY_FROMSCALARYGG(NPY_UINT8, uint8_t)
+NUMPY_FROMSCALARYGG(NPY_UINT16, uint16_t)
+NUMPY_FROMSCALARYGG(NPY_UINT32, uint32_t)
+NUMPY_FROMSCALARYGG(NPY_UINT64, uint64_t)
+NUMPY_FROMSCALARYGG(NPY_FLOAT32, float)
+NUMPY_FROMSCALARYGG(NPY_FLOAT64, double)
+NUMPY_FROMSCALARYGG(NPY_COMPLEX64, std::complex<float>)
+NUMPY_FROMSCALARYGG(NPY_COMPLEX128, std::complex<double>)
+
+
 template<typename T>
 T* PyObject_GetScalarYgg(PyObject*, QuantitySubType&) {
     return NULL;
@@ -538,7 +572,7 @@ static PyTypeObject Quantity_Type = {
     0,                              /* tp_iternext */
     quantity_methods,               /* tp_methods */
     0,                              /* tp_members */
-    0,                              /* tp_getset */
+    quantity_properties,            /* tp_getset */
     0,                              /* tp_base */
     0,                              /* tp_dict */
     0,                              /* tp_descr_get */
@@ -661,12 +695,42 @@ static int quantity_units_set(PyObject* self, PyObject* value, void*) {
     return 0;
 }
 
+template<typename T>
+static PyObject* do_quantity_value_get(Quantity<T>* x, void*) {
+    T val = x->value();
+    return PyObject_FromScalarYgg(val);
+}
+
 static PyObject* quantity_value_get(PyObject* self, void*) {
+    QuantityObject* v = (QuantityObject*) self;
+    SWITCH_QUANTITY_SUBTYPE_CALL(v, return do_quantity_value_get, NULL);
     return NULL;
 }
 
-static int quantity_value_set(PyObject* self, PyObject* value, void*) {
+template<typename T, typename Tval>
+static int do_quantity_value_set_lvl2(Quantity<T>* x, Tval& value,
+				      RAPIDJSON_ENABLEIF((YGGDRASIL_IS_CASTABLE(Tval, T)))) {
+    x->set_value((T)value);
+    return 0;
+}
+template<typename T, typename Tval>
+static int do_quantity_value_set_lvl2(Quantity<T>* x, Tval& value,
+				      RAPIDJSON_DISABLEIF((YGGDRASIL_IS_CASTABLE(Tval, T)))) {
     return -1;
+}
+
+template<typename Tval>
+static int do_quantity_value_set_lvl1(QuantityObject* v, Tval& value) {
+    SWITCH_QUANTITY_SUBTYPE_CALL(v, return do_quantity_value_set_lvl2, value)
+    return -1;
+}
+
+static int quantity_value_set(PyObject* self, PyObject* value, void*) {
+    QuantityObject* v = (QuantityObject*) self;
+    QuantitySubType value_subtype;
+    EXTRACT_PYTHON_VALUE(value_subtype, value, val,
+			 return do_quantity_value_set_lvl1,
+			 (v, *val), return -1)
 }
 
 static PyObject* quantity_is_compatible(PyObject* self, PyObject* args, PyObject* kwargs) {
