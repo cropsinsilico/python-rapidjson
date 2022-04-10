@@ -1700,7 +1700,36 @@ struct PyHandler {
 		}
 #undef SET_QUANTITY_
 	    } else {
-		std::cerr << "Handle quantity array" << std::endl;
+		RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+		QuantityArrayObject* v = (QuantityArrayObject*) QuantityArray_Type.tp_alloc(&QuantityArray_Type, 0);
+		value = (PyObject*)v;
+		int typenum = x->GetSubTypeNumpyType();
+#define SET_QUANTITY_(npT, T, subT)					\
+		case (npT): {						\
+		    v->subtype = subT;					\
+		    v->quantity = x->GetArrayQuantity<T>(allocator).copy_void(); \
+		    break;						\
+		}
+		switch (typenum) {
+		SET_QUANTITY_(NPY_INT8  , int8_t  , kInt8QuantitySubType)
+		SET_QUANTITY_(NPY_INT16 , int16_t , kInt16QuantitySubType)
+		SET_QUANTITY_(NPY_INT32 , int32_t , kInt32QuantitySubType)
+		SET_QUANTITY_(NPY_INT64 , int64_t , kInt64QuantitySubType)
+		SET_QUANTITY_(NPY_UINT8 , uint8_t , kUint8QuantitySubType)
+		SET_QUANTITY_(NPY_UINT16, uint16_t, kUint16QuantitySubType)
+		SET_QUANTITY_(NPY_UINT32, uint32_t, kUint32QuantitySubType)
+		SET_QUANTITY_(NPY_UINT64, uint64_t, kUint64QuantitySubType)
+		SET_QUANTITY_(NPY_FLOAT16, float, kFloatQuantitySubType)
+		SET_QUANTITY_(NPY_FLOAT32, float, kFloatQuantitySubType)
+		SET_QUANTITY_(NPY_FLOAT64, double, kDoubleQuantitySubType)
+		SET_QUANTITY_(NPY_COMPLEX64 , std::complex<float>, kComplexFloatQuantitySubType)
+		SET_QUANTITY_(NPY_COMPLEX128, std::complex<double>, kComplexDoubleQuantitySubType)
+		default:
+		    std::cerr << "Unhandled numpy type in array" << std::endl;
+		    Py_TYPE(value)->tp_free(value);
+		    value = NULL;
+		}
+#undef SET_QUANTITY_
 	    }
 	} else {
 	    value = x->GetPythonObjectRaw();
@@ -3105,6 +3134,18 @@ PythonAccept(
 	delete x;
 	if (!ret)
 	    PyErr_Format(PyExc_TypeError, "Error serializing Quantity");
+	return ret;
+    } else if (PyObject_IsInstance(object, (PyObject*)&QuantityArray_Type)) {
+	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+	QuantityArrayObject* v = (QuantityArrayObject*) object;
+	Value* x = new Value();
+	bool ret = false;
+	SWITCH_QUANTITY_ARRAY_SUBTYPE_CALL(v, ret = x->SetNDArrayRaw, &allocator)
+	if (ret)
+	    ret = x->Accept(*handler);
+	delete x;
+	if (!ret)
+	    PyErr_Format(PyExc_TypeError, "Error serializing QuantityArray");
 	return ret;
     } else if (!((object == Py_None) ||
 		 PyBool_Check(object) ||
