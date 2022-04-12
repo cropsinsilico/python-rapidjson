@@ -802,7 +802,27 @@ accept_parse_mode_arg(PyObject* arg, unsigned &parse_mode)
 // Python/Document Conversion //
 ////////////////////////////////
 
-static bool isJSONDocument(const char* jsonStr, size_t len) {
+static unsigned check_expectsString(Document& d) {
+    {
+	Value::ConstMemberIterator it = d.FindMember("type");
+	if ((it != d.MemberEnd()) && it->value.IsString()) {
+	    if (strcmp(it->value.GetString(), "string") == 0)
+		return 1;
+	}
+    }
+    {
+	Value::ConstMemberIterator it = d.FindMember("subtype");
+	if ((it != d.MemberEnd()) && it->value.IsString()) {
+	    if ((strcmp(it->value.GetString(), "bytes") == 0) ||
+		(strcmp(it->value.GetString(), "unicode") == 0))
+		return 1;
+	}
+    }
+    return 0;
+}
+
+
+static bool isEmptyStr(const char* jsonStr, size_t len) {
     size_t i = 0;
     while (i < len) {
 	switch (jsonStr[i]) {
@@ -815,11 +835,49 @@ static bool isJSONDocument(const char* jsonStr, size_t len) {
 	    i++;
 	    break;
 	}
-	case '"':
-	case '{':
-	case '[':
-	case '-':
-	case '+':
+	default:
+	    return false;
+	}
+    }
+    return true;
+}
+
+static bool isPaddedStr(const char* str, size_t str_len,
+			const char* pattern, size_t pattern_len) {
+    if (pattern_len > str_len)
+	return false;
+    if (strncmp(str, pattern, pattern_len) != 0)
+	return false;
+    if (!isEmptyStr(str + pattern_len, str_len - pattern_len))
+	return false;
+    return true;
+}
+
+static bool endsWith(const char* jsonStr, size_t len, const char check) {
+    size_t i = len - 1;
+    while (i >= 0) {
+	switch (jsonStr[i]) {
+	case ' ':
+	case '\n':
+	case '\r':
+	case '\v':
+	case '\f':
+	case '\t': {
+	    i--;
+	    break;
+	}
+	default:
+	    return (jsonStr[i] == check);
+	}
+    }
+    return false;
+}
+
+static bool isNumber(const char* jsonStr, size_t len, bool has_digit) {
+    size_t i = 0;
+    unsigned ndec = 0;
+    while (i < len) {
+	switch (jsonStr[i]) {
 	case '0':
 	case '1':
 	case '2':
@@ -829,43 +887,97 @@ static bool isJSONDocument(const char* jsonStr, size_t len) {
 	case '6':
 	case '7':
 	case '8':
-	case '9': {
-	    return true;
-	}
-	case 'f': {
-	    if ((len == 5) && (strcmp(jsonStr, "false") == 0))
-		return true;
+	case '9':
+	    has_digit = true;
+	    i++;
+	    break;
+	case '.':
+	    if (ndec or !has_digit)
+		return false;
+	    ndec++;
+	    i++;
+	    break;
+	case 'e':
+	case 'E':
+	    if (!has_digit)
+		return false;
+	    i++;
+	    if ((i < len) && ((jsonStr[i] == '-') || (jsonStr[i] == '+')))
+		i++;
+	    ndec = 0;
+	    has_digit = false;
+	    break;
+	case ' ':
+	case '\n':
+	case '\r':
+	case '\v':
+	case '\f':
+	case '\t':
+	    if (!has_digit)
+		return false;
+	    return isEmptyStr(jsonStr + i + 1, len - (i + 1));
+	default:
 	    return false;
 	}
-	case 't': {
-	    if ((len == 4) && (strcmp(jsonStr, "true") == 0))
-		return true;
+    }
+    return has_digit;
+}
+
+static bool isJSONDocument(const char* jsonStr, size_t len,
+			   bool* isEmpty = 0,
+			   unsigned expectsString = 0) {
+    size_t i = 0;
+    while (i < len) {
+	switch (jsonStr[i]) {
+	case ' ':
+	case '\n':
+	case '\r':
+	case '\v':
+	case '\f':
+	case '\t':
+	    i++;
+	    break;
+	case '"':
+	    return endsWith(jsonStr + i + 1, len - (i + 1), '"');
+	case '{':
+	    return endsWith(jsonStr, len, '}');
+	case '[':
+	    return endsWith(jsonStr, len, ']');
+	case '-':
+	case '+':
+	    return isNumber(jsonStr + i + 1, len - (i + 1), false);
+	case '0':
+	case '1':
+	case '2':
+	case '3':
+	case '4':
+	case '5':
+	case '6':
+	case '7':
+	case '8':
+	case '9':
+	    return isNumber(jsonStr + i + 1, len - (i + 1), true);
+	case 'f':
+	    return isPaddedStr(jsonStr + i, len - i, "false", 5);
+	case 't':
+	    return isPaddedStr(jsonStr + i, len - i, "true", 4);
+	case 'n':
+	    return isPaddedStr(jsonStr + i, len - i, "null", 4);
+	case 'N':
+	    return isPaddedStr(jsonStr + i, len - i, "NaN", 3);
+	case 'I':
+	    return isPaddedStr(jsonStr + i, len - i, "Infinity", 8);
+	default:
 	    return false;
-	}
-	case 'n': {
-	    if ((len == 4) && (strcmp(jsonStr, "null") == 0))
-		return true;
-	    return false;
-	}
-	case 'N': {
-	    if ((len == 3) && (strcmp(jsonStr, "NaN") == 0))
-		return true;
-	    return false;
-	}
-	case 'I': {
-	    if ((len == 8) && (strcmp(jsonStr, "Infinity") == 0))
-		return true;
-	    return false;
-	}
-	default: {
-	    return false;
-	}
 	}
     }
     // Empty/whitespace string defaults to assuming an empty JSON document
+    if (expectsString)
+	return false;
+    if (isEmpty)
+	*isEmpty = true;
     return true;
 }
-
 
 /////////////
 // Decoder //
@@ -3186,6 +3298,61 @@ PythonAccept(
 #undef ASSERT_VALID_SIZE
 }
 
+static bool python2document(PyObject* jsonObject, Document& d,
+			    unsigned numberMode,
+			    unsigned datetimeMode,
+			    unsigned uuidMode,
+			    unsigned bytesMode,
+			    unsigned iterableMode,
+			    unsigned mappingMode,
+			    unsigned expectsString,
+			    bool forSchema = false,
+			    bool forceObject = false) {
+    const char* jsonStr;
+    Py_ssize_t jsonStrLen = 0;
+
+    if ((!forceObject) && PyBytes_Check(jsonObject)) {
+        jsonStr = PyBytes_AsString(jsonObject);
+        if (jsonStr == NULL)
+	    return false;
+	jsonStrLen = PyBytes_Size(jsonObject);
+    } else if ((!forceObject) && PyUnicode_Check(jsonObject)) {
+        jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
+        if (jsonStr == NULL)
+	    return false;
+    } else if (forceObject || (!forSchema) || PyDict_Check(jsonObject)) {
+        jsonStr = NULL;
+    } else {
+        PyErr_Format(PyExc_TypeError, "Expected string or UTF-8 encoded bytes or a schema in a Python dictionary (not %R).", PyObject_Type(jsonObject));
+	return false;
+    }
+
+    bool error;
+    bool empty = false;
+
+    if ((jsonStr != NULL) && (!isJSONDocument(jsonStr, jsonStrLen, &empty,
+					      expectsString)))
+	jsonStr = NULL;
+
+    if (jsonStr == NULL) {
+        error = (!PythonAccept(&d, jsonObject, numberMode, datetimeMode,
+			       uuidMode, bytesMode, iterableMode,
+			       mappingMode));
+	d.FinalizeFromStack();
+	if (error)
+	    return false;
+    } else {
+        Py_BEGIN_ALLOW_THREADS
+        error = d.Parse(jsonStr).HasParseError();
+        Py_END_ALLOW_THREADS
+    }
+
+    if (error) {
+        PyErr_SetString(decode_error, "Invalid JSON");
+	return false;
+    }
+    return true;
+}
 
 template<typename WriterT>
 static bool
@@ -4522,7 +4689,9 @@ encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 // Validator //
 ///////////////
 
-static void set_validation_error(SchemaValidator& validator) {
+template <typename ValidatorObject>
+static void set_validation_error(ValidatorObject& validator,
+				 PyObject* error_type=validation_error) {
     StringBuffer sptr;
     StringBuffer dptr;
 
@@ -4557,6 +4726,7 @@ typedef struct {
     unsigned bytesMode;
     unsigned iterableMode;
     unsigned mappingMode;
+    unsigned expectsString;
 } ValidatorObject;
 
 
@@ -4632,51 +4802,17 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     if (!PyArg_ParseTuple(args, "O", &jsonObject))
         return NULL;
 
-    const char* jsonStr;
-    Py_ssize_t jsonStrLen = 0;
-
-    if (PyBytes_Check(jsonObject)) {
-        jsonStr = PyBytes_AsString(jsonObject);
-        if (jsonStr == NULL)
-            return NULL;
-	jsonStrLen = PyBytes_Size(jsonObject);
-    } else if (PyUnicode_Check(jsonObject)) {
-        jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
-        if (jsonStr == NULL)
-            return NULL;
-    } else {
-        jsonStr = NULL;
-    }
-
-    if ((jsonStr != NULL) && (!isJSONDocument(jsonStr, jsonStrLen)))
-	jsonStr = NULL;
-
-    Document d;
-    bool error;
     ValidatorObject* v = (ValidatorObject*) self;
+    Document d;
+    if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
+			 v->uuidMode, v->bytesMode, v->iterableMode,
+			 v->mappingMode, v->expectsString))
+	return NULL;
 
-    if (jsonStr == NULL) {
-        error = (!PythonAccept(&d, jsonObject, v->numberMode, v->datetimeMode,
-			       v->uuidMode, v->bytesMode, v->iterableMode,
-			       v->mappingMode));
-	d.FinalizeFromStack();
-	if (error)
-	    return NULL;
-    } else {
-        Py_BEGIN_ALLOW_THREADS
-        error = d.Parse(jsonStr).HasParseError();
-        Py_END_ALLOW_THREADS
-    }
-
-    if (error) {
-        PyErr_SetString(decode_error, "Invalid JSON");
-        return NULL;
-    }
-
-    SchemaValidator validator(*((ValidatorObject*) self)->schema);
+    SchemaValidator validator(*v->schema);
     bool accept;
 
-    if (validator.RequiresPython()) {
+    if (validator.RequiresPython() || d.RequiresPython()) {
 	accept = d.Accept(validator);
     } else {
 	Py_BEGIN_ALLOW_THREADS
@@ -4720,7 +4856,8 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
     unsigned mappingMode = MM_ANY_MAPPING;
     int allowNan = -1;
     static char const* kwlist[] = {
-        "object_hook"
+	"schema",
+        "object_hook",
         "number_mode",
         "datetime_mode",
         "uuid_mode",
@@ -4747,22 +4884,117 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
                                      &allowNan))
         return NULL;
 
-    const char* jsonStr;
-
-    if (PyBytes_Check(jsonObject)) {
-        jsonStr = PyBytes_AsString(jsonObject);
-        if (jsonStr == NULL)
+    if (objectHook && !PyCallable_Check(objectHook)) {
+        if (objectHook == Py_None) {
+            objectHook = NULL;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "object_hook is not callable");
             return NULL;
-    } else if (PyUnicode_Check(jsonObject)) {
-        jsonStr = PyUnicode_AsUTF8(jsonObject);
-        if (jsonStr == NULL)
-            return NULL;
-    } else if (PyDict_Check(jsonObject)) {
-        jsonStr = NULL;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "Expected string or UTF-8 encoded bytes");
-        return NULL;
+        }
     }
+
+    if (!accept_number_mode_arg(numberModeObj, allowNan, numberMode))
+        return NULL;
+
+    if (!accept_datetime_mode_arg(datetimeModeObj, datetimeMode))
+        return NULL;
+
+    if (!accept_uuid_mode_arg(uuidModeObj, uuidMode))
+        return NULL;
+
+    if (!accept_bytes_mode_arg(bytesModeObj, bytesMode))
+        return NULL;
+
+    if (!accept_iterable_mode_arg(iterableModeObj, iterableMode))
+        return NULL;
+
+    if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
+        return NULL;
+
+    Document d;
+    if (!python2document(jsonObject, d, numberMode, datetimeMode,
+			 uuidMode, bytesMode, iterableMode,
+			 mappingMode, 0, true))
+	return NULL;
+
+    ValidatorObject* v = (ValidatorObject*) type->tp_alloc(type, 0);
+    if (v == NULL)
+        return NULL;
+
+    v->schema = new SchemaDocument(d);
+    if (objectHook)
+	Py_INCREF(objectHook);
+    v->objectHook = objectHook;
+    v->numberMode = numberMode;
+    v->datetimeMode = datetimeMode;
+    v->uuidMode = uuidMode;
+    v->bytesMode = bytesMode;
+    v->iterableMode = iterableMode;
+    v->mappingMode = mappingMode;
+    v->expectsString = check_expectsString(d);
+
+    return (PyObject*) v;
+}
+
+
+static PyObject* validator_validate(PyObject* self, PyObject* args, PyObject* kwargs)
+{ return validator_call(self, args, kwargs); }
+
+
+static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs)
+{
+    PyObject* jsonObject;
+    PyObject* jsonStandardObj = NULL;
+    bool jsonStandard = false;
+    PyObject* objectHook = NULL;
+    PyObject* numberModeObj = NULL;
+    unsigned numberMode = NM_NAN;
+    PyObject* datetimeModeObj = NULL;
+    unsigned datetimeMode = DM_NONE;
+    PyObject* uuidModeObj = NULL;
+    unsigned uuidMode = UM_NONE;
+    PyObject* bytesModeObj = NULL;
+    unsigned bytesMode = BM_UTF8;
+    PyObject* iterableModeObj = NULL;
+    unsigned iterableMode = IM_ANY_ITERABLE;
+    PyObject* mappingModeObj = NULL;
+    unsigned mappingMode = MM_ANY_MAPPING;
+    int allowNan = -1;
+    static char const* kwlist[] = {
+	"schema",
+	"json_standard",
+        "object_hook",
+        "number_mode",
+        "datetime_mode",
+        "uuid_mode",
+        "bytes_mode",
+        "iterable_mode",
+        "mapping_mode",
+
+        /* compatibility with stdlib json */
+        "allow_nan",
+
+        NULL
+    };
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs,
+				     "O|$OOOOOOOOp:Validator.check_schema",
+                                     (char**) kwlist,
+				     &jsonObject,
+				     &jsonStandardObj,
+                                     &objectHook,
+                                     &numberModeObj,
+                                     &datetimeModeObj,
+                                     &uuidModeObj,
+				     &bytesModeObj,
+				     &iterableModeObj,
+				     &mappingModeObj,
+                                     &allowNan))
+        return NULL;
+
+    if (jsonStandardObj && PyBool_Check(jsonStandardObj))
+	jsonStandard = (jsonStandardObj == Py_True);
+    // TODO: Allow a draft name?
 
     if (objectHook && !PyCallable_Check(objectHook)) {
         if (objectHook == Py_None) {
@@ -4792,49 +5024,109 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
         return NULL;
 
     Document d;
-    bool error;
+    if (!python2document(jsonObject, d, numberMode, datetimeMode,
+			 uuidMode, bytesMode, iterableMode,
+			 mappingMode, 0, true))
+	return NULL;
 
-    if (jsonStr == NULL) {
-        error = (!PythonAccept(&d, jsonObject, numberMode, datetimeMode,
-			       uuidMode, bytesMode, iterableMode, mappingMode));
-	d.FinalizeFromStack();
-	if (error)
-	    return NULL;
-    } else {
-        Py_BEGIN_ALLOW_THREADS
-        error = d.Parse(jsonStr).HasParseError();
-        Py_END_ALLOW_THREADS
-    }
-    
+    Document d_meta;
+    bool error = false;
+    Py_BEGIN_ALLOW_THREADS
+    if (jsonStandard)
+	error = d_meta.Parse(get_standard_metaschema<char>()).HasParseError();
+    else
+	error = d_meta.Parse(get_metaschema<char>()).HasParseError();
+    Py_END_ALLOW_THREADS
     if (error) {
-        PyErr_SetString(decode_error, "Invalid JSON");
+	PyErr_SetString(decode_error, "Invalid metaschema");
+	return NULL;
+    }
+
+    SchemaDocument metaschema(d_meta);
+    SchemaValidator validator(metaschema);
+    bool accept;
+
+    if (validator.RequiresPython() || d.RequiresPython()) {
+	accept = d.Accept(validator);
+    } else {
+	Py_BEGIN_ALLOW_THREADS
+	accept = d.Accept(validator);
+	Py_END_ALLOW_THREADS
+    }
+
+    if (!accept) {
+	set_validation_error(validator);
         return NULL;
     }
 
-    ValidatorObject* v = (ValidatorObject*) type->tp_alloc(type, 0);
-    if (v == NULL)
-        return NULL;
-
-    v->schema = new SchemaDocument(d);
-    if (objectHook)
-	Py_INCREF(objectHook);
-    v->objectHook = objectHook;
-    v->numberMode = numberMode;
-    v->datetimeMode = datetimeMode;
-    v->uuidMode = uuidMode;
-    v->bytesMode = bytesMode;
-    v->iterableMode = iterableMode;
-    v->mappingMode = mappingMode;
-
-    return (PyObject*) v;
+    Py_RETURN_NONE;
+    
 }
 
 
-static PyObject* validator_validate(PyObject* self, PyObject* args, PyObject* kwargs)
-{ return validator_call(self, args, kwargs); }
+PyDoc_STRVAR(validate_docstring,
+             "validate(obj, schema, object_hook=None, number_mode=None,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
+	     " allow_nan=True)\n"
+             "\n"
+	     "Validate a Python object against a JSON schema.");
 
 
-static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs)
+static PyObject*
+validate(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+
+    if (!PyTuple_Check(args))
+	return NULL;
+
+    Py_ssize_t nargs = PyTuple_Size(args);
+    if (nargs != 2)
+	return NULL;
+    PyObject* validator_args = PyTuple_New(nargs - 1);
+    for (Py_ssize_t i = 1; i < nargs; i++) {
+	PyObject* iarg = PyTuple_GetItem(args, i);
+	if (iarg == NULL) {
+	    Py_DECREF(validator_args);
+	    return NULL;
+	}
+	Py_INCREF(iarg);
+	if (PyTuple_SetItem(validator_args, i - 1, iarg) < 0) {
+	    Py_DECREF(iarg);
+	    Py_DECREF(validator_args);
+	    return NULL;
+	}
+    }
+			
+    PyObject* validator = validator_new(&Validator_Type, validator_args, kwargs);
+    Py_DECREF(validator_args);
+    if (validator == NULL)
+	return NULL;
+
+    PyObject* instance = PyTuple_GetItem(args, 0);
+    if (instance == NULL) {
+	Py_DECREF(validator);
+	return NULL;
+    }
+    PyObject* call_args = PyTuple_Pack(1, instance);
+    PyObject* out = validator_call(validator, call_args, NULL);
+    Py_DECREF(call_args);
+    Py_DECREF(validator);
+    return out;
+}
+
+
+PyDoc_STRVAR(encode_schema_docstring,
+             "encode_schema(obj, object_hook=None, number_mode=None,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
+	     " allow_nan=True)\n"
+             "\n"
+	     "Encode a schema for a Python object.");
+
+
+static PyObject*
+encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject;
     PyObject* objectHook = NULL;
@@ -4852,6 +5144,7 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
     unsigned mappingMode = MM_ANY_MAPPING;
     int allowNan = -1;
     static char const* kwlist[] = {
+	"obj",
         "object_hook"
         "number_mode",
         "datetime_mode",
@@ -4866,8 +5159,7 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
         NULL
     };
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs,
-				     "O|$OOOOOOOp:Validator.check_schema",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOOOp:encode_schema",
                                      (char**) kwlist,
 				     &jsonObject,
                                      &objectHook,
@@ -4879,23 +5171,6 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
 				     &mappingModeObj,
                                      &allowNan))
         return NULL;
-
-    const char* jsonStr;
-
-    if (PyBytes_Check(jsonObject)) {
-        jsonStr = PyBytes_AsString(jsonObject);
-        if (jsonStr == NULL)
-            return NULL;
-    } else if (PyUnicode_Check(jsonObject)) {
-        jsonStr = PyUnicode_AsUTF8(jsonObject);
-        if (jsonStr == NULL)
-            return NULL;
-    } else if (PyDict_Check(jsonObject)) {
-        jsonStr = NULL;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "Expected string or UTF-8 encoded bytes");
-        return NULL;
-    }
 
     if (objectHook && !PyCallable_Check(objectHook)) {
         if (objectHook == Py_None) {
@@ -4925,53 +5200,116 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
         return NULL;
 
     Document d;
-    bool error;
+    if (!python2document(jsonObject, d, numberMode, datetimeMode,
+			 uuidMode, bytesMode, iterableMode,
+			 mappingMode, 0, false, true))
+	return NULL;
 
-    if (jsonStr == NULL) {
-        error = (!PythonAccept(&d, jsonObject, numberMode, datetimeMode,
-			       uuidMode, bytesMode, iterableMode, mappingMode));
-	d.FinalizeFromStack();
-	if (error)
-	    return NULL;
-    } else {
-        Py_BEGIN_ALLOW_THREADS
-        error = d.Parse(jsonStr).HasParseError();
-        Py_END_ALLOW_THREADS
+    bool accept = false;
+
+    SchemaEncoder schema_encoder;
+    accept = d.Accept(schema_encoder);
+    if (!accept) {
+	PyErr_SetString(decode_error, "Error encoding schema");
+	return NULL;
     }
     
-    if (error) {
-        PyErr_SetString(decode_error, "Invalid JSON");
+    PyHandler handler(NULL, objectHook, datetimeMode, uuidMode, numberMode);
+    accept = schema_encoder.Accept(handler);
+    if (!accept) {
+	return NULL;
+    }
+    
+    if (PyErr_Occurred()) {
+        Py_XDECREF(handler.root);
         return NULL;
     }
 
+    return handler.root;
+}
+
+
+PyDoc_STRVAR(get_metaschema_docstring,
+             "get_metaschema(object_hook=None, number_mode=None,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
+	     " allow_nan=True)\n"
+             "\n"
+	     "Get the yggdrasil modified metaschema.");
+
+
+static PyObject*
+rj_get_metaschema(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* objectHook = NULL;
+    PyObject* numberModeObj = NULL;
+    unsigned numberMode = NM_NAN;
+    PyObject* datetimeModeObj = NULL;
+    unsigned datetimeMode = DM_NONE;
+    PyObject* uuidModeObj = NULL;
+    unsigned uuidMode = UM_NONE;
+    int allowNan = -1;
+    static char const* kwlist[] = {
+        "object_hook",
+        "number_mode",
+        "datetime_mode",
+        "uuid_mode",
+
+        /* compatibility with stdlib json */
+        "allow_nan",
+
+        NULL
+    };
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|$OOOOp:get_metaschema",
+                                     (char**) kwlist,
+                                     &objectHook,
+                                     &numberModeObj,
+                                     &datetimeModeObj,
+                                     &uuidModeObj,
+                                     &allowNan))
+        return NULL;
+
+    if (objectHook && !PyCallable_Check(objectHook)) {
+        if (objectHook == Py_None) {
+            objectHook = NULL;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "object_hook is not callable");
+            return NULL;
+        }
+    }
+
+    if (!accept_number_mode_arg(numberModeObj, allowNan, numberMode))
+        return NULL;
+
+    if (!accept_datetime_mode_arg(datetimeModeObj, datetimeMode))
+        return NULL;
+
+    if (!accept_uuid_mode_arg(uuidModeObj, uuidMode))
+        return NULL;
+
     Document d_meta;
+    bool error = false;
     Py_BEGIN_ALLOW_THREADS
-    error = d_meta.Parse("{\"type\": \"schema\"}").HasParseError();
+    error = d_meta.Parse(get_metaschema<char>()).HasParseError();
     Py_END_ALLOW_THREADS
     if (error) {
 	PyErr_SetString(decode_error, "Invalid metaschema");
 	return NULL;
     }
-
-    SchemaDocument metaschema(d_meta);
-    SchemaValidator validator(metaschema);
-    bool accept;
-
-    if (validator.RequiresPython()) {
-	accept = d.Accept(validator);
-    } else {
-	Py_BEGIN_ALLOW_THREADS
-	accept = d.Accept(validator);
-	Py_END_ALLOW_THREADS
-    }
-
+    
+    PyHandler handler(NULL, objectHook, datetimeMode, uuidMode, numberMode);
+    bool accept = d_meta.Accept(handler);
     if (!accept) {
-	set_validation_error(validator);
+	return NULL;
+    }
+    
+    if (PyErr_Occurred()) {
+        Py_XDECREF(handler.root);
         return NULL;
     }
 
-    Py_RETURN_NONE;
-    
+    return handler.root;
 }
 
 
@@ -4990,6 +5328,7 @@ typedef struct {
     unsigned bytesMode;
     unsigned iterableMode;
     unsigned mappingMode;
+    unsigned expectsString;
 } NormalizerObject;
 
 
@@ -5067,51 +5406,17 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
     if (!PyArg_ParseTuple(args, "O", &jsonObject))
         return NULL;
 
-    const char* jsonStr;
-    Py_ssize_t jsonStrLen = 0;
-
-    if (PyBytes_Check(jsonObject)) {
-        jsonStr = PyBytes_AsString(jsonObject);
-        if (jsonStr == NULL)
-            return NULL;
-	jsonStrLen = PyBytes_Size(jsonObject);
-    } else if (PyUnicode_Check(jsonObject)) {
-        jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
-        if (jsonStr == NULL)
-            return NULL;
-    } else {
-        jsonStr = NULL;
-    }
-
-    if ((jsonStr != NULL) && (!isJSONDocument(jsonStr, jsonStrLen)))
-	jsonStr = NULL;
-
-    Document d;
-    bool error;
     NormalizerObject* v = (NormalizerObject*) self;
-
-    if (jsonStr == NULL) {
-        error = (!PythonAccept(&d, jsonObject, v->numberMode, v->datetimeMode,
-			       v->uuidMode, v->bytesMode, v->iterableMode,
-			       v->mappingMode));
-	d.FinalizeFromStack();
-	if (error)
-	    return NULL;
-    } else {
-        Py_BEGIN_ALLOW_THREADS
-        error = d.Parse(jsonStr).HasParseError();
-        Py_END_ALLOW_THREADS
-    }
-
-    if (error) {
-        PyErr_SetString(decode_error, "Invalid JSON");
-        return NULL;
-    }
-
+    Document d;
+    if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
+			 v->uuidMode, v->bytesMode, v->iterableMode,
+			 v->mappingMode, v->expectsString))
+	return NULL;
+    
     SchemaNormalizer normalizer(*((NormalizerObject*) self)->schema);
     bool accept;
 
-    if (normalizer.RequiresPython()) {
+    if (normalizer.RequiresPython() || d.RequiresPython()) {
 	accept = d.Accept(normalizer);
     } else {
 	Py_BEGIN_ALLOW_THREADS
@@ -5119,25 +5424,8 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
 	Py_END_ALLOW_THREADS
     }
 
-    if (!accept) {
-        StringBuffer sptr;
-        StringBuffer dptr;
-
-        Py_BEGIN_ALLOW_THREADS
-        normalizer.GetInvalidSchemaPointer().StringifyUriFragment(sptr);
-        normalizer.GetInvalidDocumentPointer().StringifyUriFragment(dptr);
-        Py_END_ALLOW_THREADS
-
-        PyObject* error = Py_BuildValue("sss", normalizer.GetInvalidSchemaKeyword(),
-                                        sptr.GetString(), dptr.GetString());
-        PyErr_SetObject(normalization_error, error);
-
-        Py_XDECREF(error);
-        sptr.Clear();
-        dptr.Clear();
-
-        return NULL;
-    }
+    if (!accept)
+	set_validation_error(normalizer, normalization_error);
 
     PyHandler handler(NULL, v->objectHook, v->datetimeMode, v->uuidMode,
 		      v->numberMode);
@@ -5184,7 +5472,8 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
     unsigned mappingMode = MM_ANY_MAPPING;
     int allowNan = -1;
     static char const* kwlist[] = {
-        "object_hook"
+	"schema",
+        "object_hook",
         "number_mode",
         "datetime_mode",
         "uuid_mode",
@@ -5210,23 +5499,6 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
 				     &mappingModeObj,
                                      &allowNan))
         return NULL;
-
-    const char* jsonStr;
-
-    if (PyBytes_Check(jsonObject)) {
-        jsonStr = PyBytes_AsString(jsonObject);
-        if (jsonStr == NULL)
-            return NULL;
-    } else if (PyUnicode_Check(jsonObject)) {
-        jsonStr = PyUnicode_AsUTF8(jsonObject);
-        if (jsonStr == NULL)
-            return NULL;
-    } else if (PyDict_Check(jsonObject)) {
-        jsonStr = NULL;
-    } else {
-        PyErr_SetString(PyExc_TypeError, "Expected string or UTF-8 encoded bytes");
-        return NULL;
-    }
 
     if (objectHook && !PyCallable_Check(objectHook)) {
         if (objectHook == Py_None) {
@@ -5256,24 +5528,10 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
         return NULL;
 
     Document d;
-    bool error;
-
-    if (jsonStr == NULL) {
-        error = (!PythonAccept(&d, jsonObject, numberMode, datetimeMode,
-			       uuidMode, bytesMode, iterableMode, mappingMode));
-	d.FinalizeFromStack();
-	if (error)
-	    return NULL;
-    } else {
-        Py_BEGIN_ALLOW_THREADS
-        error = d.Parse(jsonStr).HasParseError();
-        Py_END_ALLOW_THREADS
-    }
-
-    if (error) {
-        PyErr_SetString(decode_error, "Invalid JSON");
-        return NULL;
-    }
+    if (!python2document(jsonObject, d, numberMode, datetimeMode,
+			 uuidMode, bytesMode, iterableMode,
+			 mappingMode, 0, true))
+	return NULL;
 
     NormalizerObject* v = (NormalizerObject*) type->tp_alloc(type, 0);
     if (v == NULL)
@@ -5289,6 +5547,7 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
     v->bytesMode = bytesMode;
     v->iterableMode = iterableMode;
     v->mappingMode = mappingMode;
+    v->expectsString = check_expectsString(d);
 
     return (PyObject*) v;
 }
@@ -5305,51 +5564,17 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
     if (!PyArg_ParseTuple(args, "O", &jsonObject))
         return NULL;
 
-    const char* jsonStr;
-    Py_ssize_t jsonStrLen = 0;
-
-    if (PyBytes_Check(jsonObject)) {
-        jsonStr = PyBytes_AsString(jsonObject);
-        if (jsonStr == NULL)
-            return NULL;
-	jsonStrLen = PyBytes_Size(jsonObject);
-    } else if (PyUnicode_Check(jsonObject)) {
-        jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
-        if (jsonStr == NULL)
-            return NULL;
-    } else {
-        jsonStr = NULL;
-    }
-
-    if ((jsonStr != NULL) && (!isJSONDocument(jsonStr, jsonStrLen)))
-	jsonStr = NULL;
-
+    NormalizerObject* v = (NormalizerObject*) self;
     Document d;
-    bool error;
-    ValidatorObject* v = (ValidatorObject*) self;
+    if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
+			 v->uuidMode, v->bytesMode, v->iterableMode,
+			 v->mappingMode, v->expectsString))
+	return NULL;
 
-    if (jsonStr == NULL) {
-        error = (!PythonAccept(&d, jsonObject, v->numberMode, v->datetimeMode,
-			       v->uuidMode, v->bytesMode, v->iterableMode,
-			       v->mappingMode));
-	d.FinalizeFromStack();
-	if (error)
-	    return NULL;
-    } else {
-        Py_BEGIN_ALLOW_THREADS
-        error = d.Parse(jsonStr).HasParseError();
-        Py_END_ALLOW_THREADS
-    }
-
-    if (error) {
-        PyErr_SetString(decode_error, "Invalid JSON");
-        return NULL;
-    }
-
-    SchemaValidator validator(*((NormalizerObject*) self)->schema);
+    SchemaValidator validator(*(v->schema));
     bool accept;
 
-    if (validator.RequiresPython()) {
+    if (validator.RequiresPython() || d.RequiresPython()) {
 	accept = d.Accept(validator);
     } else {
 	Py_BEGIN_ALLOW_THREADS
@@ -5366,8 +5591,8 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
 }
 
 
-static PyObject* normalizer_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs)
-{ return validator_check_schema(cls, args, kwargs); }
+static PyObject* normalizer_check_schema(PyObject*, PyObject* args, PyObject* kwargs)
+{ return validator_check_schema((PyObject*)(&Validator_Type), args, kwargs); }
 
 
 ////////////
@@ -5423,6 +5648,14 @@ static PyMethodDef functions[] = {
      dumps_docstring},
     {"dump", (PyCFunction) dump, METH_VARARGS | METH_KEYWORDS,
      dump_docstring},
+    {"validate", (PyCFunction) validate, METH_VARARGS | METH_KEYWORDS,
+     validate_docstring},
+    {"encode_schema", (PyCFunction) encode_schema,
+     METH_VARARGS | METH_KEYWORDS,
+     encode_schema_docstring},
+    {"get_metaschema", (PyCFunction) rj_get_metaschema,
+     METH_VARARGS | METH_KEYWORDS,
+     get_metaschema_docstring},
     {NULL, NULL, 0, NULL} /* sentinel */
 };
 

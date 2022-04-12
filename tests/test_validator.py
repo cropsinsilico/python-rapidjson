@@ -34,6 +34,7 @@ def test_valid(schema, json):
     validate = rj.Validator(schema)
     validate(json)
     validate.validate(json)
+    rj.validate(json, schema)
 
 
 @pytest.mark.parametrize('schema,json,details', (
@@ -49,6 +50,9 @@ def test_invalid(schema, json, details):
     assert error.value.args == details
     with pytest.raises(ValueError) as error:
         validate.validate(json)
+    assert error.value.args == details
+    with pytest.raises(ValueError) as error:
+        rj.validate(json, schema)
     assert error.value.args == details
 
 
@@ -74,16 +78,22 @@ def test_additional_and_pattern_properties_valid(schema, json):
     validate = rj.Validator(schema)
     validate(json)
     validate.validate(json)
+    rj.validate(json, schema)
 
 
-@pytest.mark.parametrize('schema', (
-    '{ "type": ["number", "string"] }',
-    {"type": ["number", "string"]},
-    '{ "type": "instance" }',
-    {"type": "instance"}
+@pytest.mark.parametrize('schema,standard', (
+    ('{ "type": ["number", "string"] }', True),
+    ({"type": ["number", "string"]}, True),
+    ('{ "type": "instance" }', False),
+    ({"type": "instance"}, False)
 ))
-def test_check_schema(schema):
+def test_check_schema(schema, standard):
     rj.Validator.check_schema(schema)
+    if standard:
+        rj.Validator.check_schema(schema, json_standard=True)
+    else:
+        with pytest.raises(rj.ValidationError):
+            rj.Validator.check_schema(schema, json_standard=True)
 
 
 @pytest.mark.parametrize('schema,details', (
@@ -94,3 +104,7 @@ def test_check_schema_invalid(schema, details):
     with pytest.raises(ValueError) as error:
         rj.Validator.check_schema(schema)
     assert error.value.args == details
+
+
+def test_get_metaschema():
+    rj.get_metaschema()
