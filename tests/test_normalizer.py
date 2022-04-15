@@ -43,7 +43,12 @@ def test_normalize(schema, json, normalized):
 @pytest.mark.parametrize('schema,json,details', (
     ('{ "type": ["number", "string"] }',
      '["Life", "the universe", "and everything"]',
-     ('type', '#', '#'),
+     ('{\n'
+      + '    "message": "Property has a type \'array\' that is not in the'
+      + ' following list: \'[\\"string\\",\\"number\\"]\'.",\n'
+      + '    "instanceRef": "#",\n'
+      + '    "schemaRef": "#"\n'
+      + '}', )
      ),
 ))
 def test_invalid(schema, json, details):
@@ -70,8 +75,48 @@ def test_check_schema(schema):
 
 
 @pytest.mark.parametrize('schema,details', (
-    ('{ "type": 3 }', ('schema', '#', '#')),
-    ({"type": 3}, ('schema', '#', '#')),
+    ('{ "type": 3 }',
+     ('{\n'
+      '    "message": "Property did not match any of the sub-schemas'
+      ' specified by \'anyOf\', refer to following errors.",\n'
+      '    "instanceRef": "#/type",\n'
+      '    "schemaRef": "#/properties/type",\n'
+      '    "errors": [\n'
+      '        {\n'
+      '            "message": "Property has a value that is not one of its'
+      ' allowed enumerated values.",\n'
+      '            "instanceRef": "#/type",\n'
+      '            "schemaRef": "#/definitions/simpleTypes"\n'
+      '        },\n'
+      '        {\n'
+      '            "message": "Property has a type \'integer\' that is not'
+      ' in the following list: \'[\\"array\\"]\'.",\n'
+      '            "instanceRef": "#/type",\n'
+      '            "schemaRef": "#/properties/type/anyOf/1"\n'
+      '        }\n'
+      '    ]\n'
+      '}', )),
+    ({"type": 3},
+     ('{\n'
+      '    "message": "Property did not match any of the sub-schemas'
+      ' specified by \'anyOf\', refer to following errors.",\n'
+      '    "instanceRef": "#/type",\n'
+      '    "schemaRef": "#/properties/type",\n'
+      '    "errors": [\n'
+      '        {\n'
+      '            "message": "Property has a value that is not one of its'
+      ' allowed enumerated values.",\n'
+      '            "instanceRef": "#/type",\n'
+      '            "schemaRef": "#/definitions/simpleTypes"\n'
+      '        },\n'
+      '        {\n'
+      '            "message": "Property has a type \'integer\' that is not'
+      ' in the following list: \'[\\"array\\"]\'.",\n'
+      '            "instanceRef": "#/type",\n'
+      '            "schemaRef": "#/properties/type/anyOf/1"\n'
+      '        }\n'
+      '    ]\n'
+      '}', )),
 ))
 def test_check_schema_invalid(schema, details):
     with pytest.raises(ValueError) as error:

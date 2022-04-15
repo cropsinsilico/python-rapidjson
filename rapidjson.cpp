@@ -4700,17 +4700,19 @@ static void set_validation_error(ValidatorObject& validator,
     validator.GetInvalidDocumentPointer().StringifyUriFragment(dptr);
     Py_END_ALLOW_THREADS
 
-    // StringBuffer sb;
-    // Writer<StringBuffer> w(sb);
-    // validator.GetError().Accept(w);
-    // PyObject* error = Py_BuildValue("ssss", validator.GetInvalidSchemaKeyword(),
-    // 				    sptr.GetString(), dptr.GetString(),
-    // 				    sb.GetString());
-    PyObject* error = Py_BuildValue("sss", validator.GetInvalidSchemaKeyword(),
-				    sptr.GetString(), dptr.GetString());
-    PyErr_SetObject(validation_error, error);
+    StringBuffer sb;
+    PrettyWriter<StringBuffer> w(sb);
+    RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+    Value err;
+    std::string msg;
+    if (!validator.GetErrorMsg(err, allocator))
+	msg = "Error creating ValidationError message.";
+    else {
+	err.Accept(w);
+	msg = std::string(sb.GetString());
+    }
+    PyErr_SetString(error_type, msg.c_str());
 	
-    Py_XDECREF(error);
     sptr.Clear();
     dptr.Clear();
 }
