@@ -205,6 +205,8 @@ def test_Quantity_modulus(v1, u1, v2, u2, vExp, uExp):
     (int(1), "mol", "umol", int(1e6), "umol")
 ])
 def test_Quantity_set_get_units(v1, u1, u, vExp, uExp):
+    x0 = units.Quantity(v1)
+    assert x0.units.is_dimensionless()
     x1 = units.Quantity(v1, u1)
     uSet = units.Units(u)
     x1.units = uSet
@@ -412,6 +414,8 @@ def test_QuantityArray_modulus(v1, u1, v2, u2, vExp, uExp):
 ])
 def test_QuantityArray_set_get_units(v1, u1, u, vExp, uExp):
     arr = np.arange(6).reshape((3, 2))
+    x0 = units.QuantityArray(arr)
+    assert x0.units.is_dimensionless()
     x1 = units.QuantityArray(v1 * arr, u1)
     uSet = units.Units(u)
     x1.units = uSet
