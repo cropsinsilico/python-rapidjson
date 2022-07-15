@@ -72,6 +72,7 @@ if os.path.exists('rapidjson_exact_version.txt'):
 
 
 cxx = sysconfig.get_config_var('CXX')
+print(f"SETUP.PY CXX = {cxx}")
 if cxx and 'g++' in cxx:
     # Avoid warning about invalid flag for C++
     for varname in ('CFLAGS', 'OPT'):
