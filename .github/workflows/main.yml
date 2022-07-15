@@ -94,6 +94,7 @@ jobs:
         include:
           - os: ubuntu-20.04
             arch: aarch64
+      fail-fast: false
 
     steps:
       - name: Checkout sources
