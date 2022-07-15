@@ -43,7 +43,7 @@
          ... except ValidationError as error:
          ...   print(error.args)
          ...
-         ('required', '#', '#')
+	 ('{\n    "message": "Object is missing the following members required by the schema: \'[\\"b\\"]\'.",\n    "instanceRef": "#",\n    "schemaRef": "#"\n}',)
 
       .. doctest::
 
@@ -56,7 +56,7 @@
          ... except ValidationError as error:
          ...   print(error.args)
          ...
-         ('minItems', '#', '#')
+	 ('{\n    "message": "Array of length \'0\' is shorter than the \'minItems\' value \'1\'.",\n    "instanceRef": "#",\n    "schemaRef": "#"\n}',)
 
       .. doctest::
 
@@ -65,13 +65,13 @@
          ... except ValidationError as error:
          ...   print(error.args)
          ...
-         ('type', '#/items', '#/0')
+	 ('{\n    "message": "Property has a type \'integer\' that is not in the following list: \'[\\"string\\"]\'.",\n    "instanceRef": "#/0",\n    "schemaRef": "#/items"\n}',)
 
       When `json` is not a valid JSON document, a :exc:`JSONDecodeError` is raised instead:
 
       .. doctest::
 
-         >>> validate('x')
+         >>> validate('[x]')
          Traceback (most recent call last):
            File "<stdin>", line 1, in <module>
          rapidjson.JSONDecodeError: Invalid JSON
