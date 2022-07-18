@@ -892,7 +892,7 @@ static bool isNumber(const char* jsonStr, size_t len, bool has_digit) {
 	    i++;
 	    break;
 	case '.':
-	    if (ndec or !has_digit)
+	    if (ndec || !has_digit)
 		return false;
 	    ndec++;
 	    i++;
