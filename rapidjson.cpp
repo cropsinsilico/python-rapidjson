@@ -803,6 +803,8 @@ accept_parse_mode_arg(PyObject* arg, unsigned &parse_mode)
 ////////////////////////////////
 
 static unsigned check_expectsString(Document& d) {
+    if (!d.IsObject())
+	return 0;
     {
 	Value::ConstMemberIterator it = d.FindMember("type");
 	if ((it != d.MemberEnd()) && it->value.IsString()) {
@@ -1854,6 +1856,8 @@ struct PyHandler {
 
     template <typename YggSchemaValueType>
     bool YggdrasilStartObject(YggSchemaValueType& schema) {
+	if (!schema.IsObject())
+	    return false;
 	typename YggSchemaValueType::ConstMemberIterator vs = schema.FindMember(YggSchemaValueType::GetTypeString());
 	if ((vs != schema.MemberEnd()) &&
 	    ((vs->value == YggSchemaValueType::GetPythonInstanceString()) ||
