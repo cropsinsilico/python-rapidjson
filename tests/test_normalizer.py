@@ -10,9 +10,9 @@ import pytest
 import rapidjson as rj
 
 
-def test_invalid_schema():
-    pytest.raises(rj.JSONDecodeError, rj.Normalizer, '')
-    pytest.raises(rj.JSONDecodeError, rj.Normalizer, '"')
+# def test_invalid_schema():
+#     pytest.raises(rj.JSONDecodeError, rj.Normalizer, '')
+#     pytest.raises(rj.JSONDecodeError, rj.Normalizer, '"')
 
 
 def test_invalid_json():
