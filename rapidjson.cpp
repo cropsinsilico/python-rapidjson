@@ -4020,8 +4020,11 @@ dumps_internal(
     } else if (defaultFn) {
         PyObject* retval = PyObject_CallFunctionObjArgs(defaultFn, object, NULL);
         if (retval == NULL) {
+	    PyObject *type, *value, *traceback;
+	    PyErr_Fetch(&type, &value, &traceback);
 	    bool r = PythonAccept(writer, object, numberMode, datetimeMode, uuidMode,
 				  bytesMode, iterableMode, mappingMode);
+	    PyErr_Restore(type, value, traceback);
 	    if (r)
 		PyErr_Clear();
             return r;
