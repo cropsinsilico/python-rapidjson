@@ -10,6 +10,11 @@ import pytest
 import rapidjson as rj
 
 
+def filter_func_ex():  # pragma: no cover
+    r"""Test function for normalizing filters."""
+    return False
+
+
 def test_invalid_schema():
     pytest.raises(rj.JSONDecodeError, rj.Normalizer, '')
     pytest.raises(rj.JSONDecodeError, rj.Normalizer, '"')
@@ -32,6 +37,9 @@ def test_invalid_json():
     ({"type": "object",
       "properties": {"color": {"default": "purple"}},
       "required": ["color"]}, {}, {"color": "purple"}),
+    ({"type": "function"},
+     f"{__file__}:filter_func_ex",
+     filter_func_ex),
 ))
 def test_normalize(schema, json, normalized):
     normalizer = rj.Normalizer(schema)
