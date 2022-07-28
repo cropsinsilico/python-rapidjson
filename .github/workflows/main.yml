@@ -117,9 +117,9 @@ jobs:
           CIBW_ARCHS_LINUX: ${{matrix.arch}}
           CIBW_TEST_REQUIRES: "pytest pytest-benchmark pytz"
           CIBW_TEST_COMMAND: "pytest {project}/tests"
-          CIBW_SKIP: "cp2* cp33* cp34* cp35* cp36* pp* cp310*"
+          CIBW_SKIP: "cp2* cp33* cp34* cp35* cp36* pp*"
           CIBW_ENVIRONMENT: "PIP_ONLY_BINARY=numpy"
-          CIBW_BEFORE_BUILD: pip install numpy
+          CIBW_BEFORE_BUILD: pip install oldest-supported-numpy
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
