@@ -61,6 +61,36 @@ def test_invalid(schema, json, details):
     assert error.value.args == details
 
 
+@pytest.mark.parametrize('schema,json,details', (
+    ({"type": "object",
+      "properties": {"a": {"type": "string"},
+                     "b": {"type": "string",
+                           "deprecated": True}}},
+     {"a": "foo", "b": "bar"},
+     ('{\n'
+      + '    "message": "Property is being deprecated.",\n'
+      + '    "instanceRef": "#/b",\n'
+      + '    "schemaRef": "#/properties/b"\n'
+      + '}', )
+     ),
+))
+def test_warning(schema, json, details):
+    validate = rj.Validator(schema)
+    with pytest.warns(rj.ValidationWarning) as record:
+        validate(json)
+    print(dir(record))
+    assert len(record) == 1
+    assert record[0].message.args == details
+    with pytest.warns(rj.ValidationWarning) as record:
+        validate.validate(json)
+    assert len(record) == 1
+    assert record[0].message.args == details
+    with pytest.warns(rj.ValidationWarning) as record:
+        rj.validate(json, schema)
+    assert len(record) == 1
+    assert record[0].message.args == details
+
+
 # See: https://spacetelescope.github.io/understanding-json-schema/
 #   reference/object.html#pattern-properties
 @pytest.mark.parametrize('schema', [

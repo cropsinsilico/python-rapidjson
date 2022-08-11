@@ -56,7 +56,9 @@ static PyObject* timezone_type = NULL;
 static PyObject* timezone_utc = NULL;
 static PyObject* uuid_type = NULL;
 static PyObject* validation_error = NULL;
+static PyObject* validation_warning = NULL;
 static PyObject* normalization_error = NULL;
+static PyObject* normalization_warning = NULL;
 static PyObject* decode_error = NULL;
 
 
@@ -4698,7 +4700,8 @@ encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 
 template <typename ValidatorObject>
 static void set_validation_error(ValidatorObject& validator,
-				 PyObject* error_type=validation_error) {
+				 PyObject* error_type=validation_error,
+				 bool warning = false) {
     StringBuffer sptr;
     StringBuffer dptr;
 
@@ -4712,18 +4715,23 @@ static void set_validation_error(ValidatorObject& validator,
     RAPIDJSON_DEFAULT_ALLOCATOR allocator;
     Value err;
     std::string msg;
-    if (!validator.GetErrorMsg(err, allocator))
+    bool success = (warning) ? validator.GetWarningMsg(err, allocator) :
+	validator.GetErrorMsg(err, allocator);
+    if (!success)
 	msg = "Error creating ValidationError message.";
     else {
 	err.Accept(w);
 	msg = std::string(sb.GetString());
     }
-    PyErr_SetString(error_type, msg.c_str());
+    if (warning) {
+	PyErr_WarnEx(error_type, msg.c_str(), 1);
+    } else {
+	PyErr_SetString(error_type, msg.c_str());
+    }
 	
     sptr.Clear();
     dptr.Clear();
 }
-
 
 typedef struct {
     PyObject_HEAD
@@ -4834,6 +4842,9 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
         return NULL;
     }
 
+    if (validator.GetInvalidSchemaCode() == kValidateWarnings)
+	set_validation_error(validator, validation_warning, true);
+    
     Py_RETURN_NONE;
 }
 
@@ -5068,6 +5079,9 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
         return NULL;
     }
 
+    if (validator.GetInvalidSchemaCode() == kValidateWarnings)
+	set_validation_error(validator, validation_warning, true);
+    
     Py_RETURN_NONE;
     
 }
@@ -5433,9 +5447,14 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
 	Py_END_ALLOW_THREADS
     }
 
-    if (!accept)
+    if (!accept) {
 	set_validation_error(normalizer, normalization_error);
+	return NULL;
+    }
 
+    if (normalizer.GetInvalidSchemaCode() == kValidateWarnings)
+	set_validation_error(normalizer, normalization_warning, true);
+    
     PyHandler handler(NULL, v->objectHook, v->datetimeMode, v->uuidMode,
 		      v->numberMode);
     accept = normalizer.GetNormalized().Accept(handler);
@@ -5596,12 +5615,67 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
         return NULL;
     }
 
+    if (validator.GetInvalidSchemaCode() == kValidateWarnings)
+	set_validation_error(validator, validation_warning, true);
+    
     Py_RETURN_NONE;
 }
 
 
 static PyObject* normalizer_check_schema(PyObject*, PyObject* args, PyObject* kwargs)
 { return validator_check_schema((PyObject*)(&Validator_Type), args, kwargs); }
+
+
+PyDoc_STRVAR(normalize_docstring,
+             "normalize(obj, schema, object_hook=None, number_mode=None,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
+	     " allow_nan=True)\n"
+             "\n"
+	     "Normalize a Python object against a JSON schema.");
+
+
+static PyObject*
+normalize(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+
+    if (!PyTuple_Check(args))
+	return NULL;
+
+    Py_ssize_t nargs = PyTuple_Size(args);
+    if (nargs != 2)
+	return NULL;
+    PyObject* normalizer_args = PyTuple_New(nargs - 1);
+    for (Py_ssize_t i = 1; i < nargs; i++) {
+	PyObject* iarg = PyTuple_GetItem(args, i);
+	if (iarg == NULL) {
+	    Py_DECREF(normalizer_args);
+	    return NULL;
+	}
+	Py_INCREF(iarg);
+	if (PyTuple_SetItem(normalizer_args, i - 1, iarg) < 0) {
+	    Py_DECREF(iarg);
+	    Py_DECREF(normalizer_args);
+	    return NULL;
+	}
+    }
+			
+    PyObject* normalizer = normalizer_new(&Normalizer_Type, normalizer_args, kwargs);
+    Py_DECREF(normalizer_args);
+    if (normalizer == NULL)
+	return NULL;
+
+    PyObject* instance = PyTuple_GetItem(args, 0);
+    if (instance == NULL) {
+	Py_DECREF(normalizer);
+	return NULL;
+    }
+    PyObject* call_args = PyTuple_Pack(1, instance);
+    PyObject* out = normalizer_call(normalizer, call_args, NULL);
+    Py_DECREF(call_args);
+    Py_DECREF(normalizer);
+    return out;
+}
 
 
 ////////////
@@ -5659,6 +5733,8 @@ static PyMethodDef functions[] = {
      dump_docstring},
     {"validate", (PyCFunction) validate, METH_VARARGS | METH_KEYWORDS,
      validate_docstring},
+    {"normalize", (PyCFunction) normalize, METH_VARARGS | METH_KEYWORDS,
+     normalize_docstring},
     {"encode_schema", (PyCFunction) encode_schema,
      METH_VARARGS | METH_KEYWORDS,
      encode_schema_docstring},
@@ -5896,6 +5972,16 @@ module_exec(PyObject* m)
         return -1;
     }
 
+    validation_warning = PyErr_NewException("rapidjson.ValidationWarning",
+					       PyExc_Warning, NULL);
+    if (validation_warning == NULL)
+        return -1;
+    Py_INCREF(validation_warning);
+    if (PyModule_AddObject(m, "ValidationWarning", validation_warning) < 0) {
+        Py_DECREF(validation_warning);
+        return -1;
+    }
+    
     normalization_error = PyErr_NewException("rapidjson.NormalizationError",
 					     PyExc_ValueError, NULL);
     if (normalization_error == NULL)
@@ -5906,6 +5992,16 @@ module_exec(PyObject* m)
         return -1;
     }
 
+    normalization_warning = PyErr_NewException("rapidjson.NormalizationWarning",
+					       PyExc_Warning, NULL);
+    if (normalization_warning == NULL)
+        return -1;
+    Py_INCREF(normalization_warning);
+    if (PyModule_AddObject(m, "NormalizationWarning", normalization_warning) < 0) {
+        Py_DECREF(normalization_warning);
+        return -1;
+    }
+    
     decode_error = PyErr_NewException("rapidjson.JSONDecodeError",
                                       PyExc_ValueError, NULL);
     if (decode_error == NULL)

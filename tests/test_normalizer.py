@@ -72,6 +72,49 @@ def test_invalid(schema, json, details):
     assert error.value.args == details
 
 
+@pytest.mark.parametrize('schema,json,details,expected', (
+    ({"type": "object",
+      "properties": {"a": {"type": "string", "default": "foo"},
+                     "b": {"type": "string", "deprecated": True}},
+      "required": ["a"]},
+     {"b": "bar"},
+     ('{\n'
+      + '    "message": "Property is being deprecated.",\n'
+      + '    "instanceRef": "#/b",\n'
+      + '    "schemaRef": "#/properties/b"\n'
+      + '}', ),
+     {"a": "foo", "b": "bar"}
+     ),
+    ({"type": "object",
+      "properties": {"a": {"type": "string", "default": "foo"},
+                     "b": {"type": "string", "deprecated": True}},
+      "required": ["a"]},
+     {"a": "foo", "b": "bar"},
+     ('{\n'
+      + '    "message": "Property is being deprecated.",\n'
+      + '    "instanceRef": "#/b",\n'
+      + '    "schemaRef": "#/properties/b"\n'
+      + '}', ),
+     {"a": "foo", "b": "bar"}
+     ),
+))
+def test_warning(schema, json, details, expected):
+    normalizer = rj.Normalizer(schema)
+    with pytest.warns(rj.NormalizationWarning) as record:
+        assert normalizer(json) == expected
+    print(dir(record))
+    assert len(record) == 1
+    assert record[0].message.args == details
+    with pytest.warns(rj.NormalizationWarning) as record:
+        assert normalizer.normalize(json) == expected
+    assert len(record) == 1
+    assert record[0].message.args == details
+    with pytest.warns(rj.NormalizationWarning) as record:
+        assert rj.normalize(json, schema) == expected
+    assert len(record) == 1
+    assert record[0].message.args == details
+
+
 @pytest.mark.parametrize('schema', (
     '{ "type": ["number", "string"] }',
     {"type": ["number", "string"]},
