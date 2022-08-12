@@ -102,7 +102,6 @@ def test_warning(schema, json, details, expected):
     normalizer = rj.Normalizer(schema)
     with pytest.warns(rj.NormalizationWarning) as record:
         assert normalizer(json) == expected
-    print(dir(record))
     assert len(record) == 1
     assert record[0].message.args == details
     with pytest.warns(rj.NormalizationWarning) as record:
