@@ -4830,15 +4830,11 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     bool accept;
 
     if (validator.RequiresPython() || d.RequiresPython()) {
-	// if (false) {
 	accept = d.Accept(validator);
     } else {
-	validator.DisablePython();
 	Py_BEGIN_ALLOW_THREADS
 	accept = d.Accept(validator);
 	Py_END_ALLOW_THREADS
-	validator.EnablePython();
-	// TODO: Collect Python-related errors
     }
 
     if (!accept) {
@@ -5071,15 +5067,11 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
     bool accept;
 
     if (validator.RequiresPython() || d.RequiresPython()) {
-	// if (false) {
 	accept = d.Accept(validator);
     } else {
-	validator.DisablePython();
 	Py_BEGIN_ALLOW_THREADS
 	accept = d.Accept(validator);
 	Py_END_ALLOW_THREADS
-	validator.EnablePython();
-	// TODO: Collect Python-related errors
     }
 
     if (!accept) {
@@ -5448,15 +5440,11 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
     bool accept;
 
     if (normalizer.RequiresPython() || d.RequiresPython()) {
-	// if (false) {
 	accept = d.Accept(normalizer);
     } else {
-	normalizer.DisablePython();
 	Py_BEGIN_ALLOW_THREADS
         accept = d.Accept(normalizer);
 	Py_END_ALLOW_THREADS
-	normalizer.EnablePython();
-	// TODO: Collect Python-related errors
     }
 
     if (!accept) {
@@ -5615,15 +5603,11 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
     bool accept;
 
     if (validator.RequiresPython() || d.RequiresPython()) {
-	// if (false) {
 	accept = d.Accept(validator);
     } else {
-	validator.DisablePython();
 	Py_BEGIN_ALLOW_THREADS
 	accept = d.Accept(validator);
 	Py_END_ALLOW_THREADS
-	validator.EnablePython();
-	// TODO: Collect Python-related errors
     }
 
     if (!accept) {
