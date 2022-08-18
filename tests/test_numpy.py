@@ -32,7 +32,6 @@ def test_scalars(dumps, loads, np_type):
 def test_strings(dumps, loads, type_str, values):
     value = np.array(values, dtype=type_str)
     dumped = dumps(value)
-    print(dumped)
     loaded = loads(dumped)
     assert loaded == value
 
