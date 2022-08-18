@@ -25,6 +25,18 @@ def test_scalars(dumps, loads, np_type):
             and loaded.dtype == value.dtype)
 
 
+@pytest.mark.parametrize('type_str,values', [
+    ('S1', [b'1']),
+    ('U5', ['hello']),
+])
+def test_strings(dumps, loads, type_str, values):
+    value = np.array(values, dtype=type_str)
+    dumped = dumps(value)
+    print(dumped)
+    loaded = loads(dumped)
+    assert loaded == value
+
+
 @pytest.mark.parametrize(
     'np_type', (
         np.float64,

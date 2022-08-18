@@ -1788,7 +1788,8 @@ struct PyHandler {
 	    if (x->IsScalar()) {
 		QuantityObject* v = (QuantityObject*) Quantity_Type.tp_alloc(&Quantity_Type, 0);
 		value = (PyObject*)v;
-		int typenum = x->GetSubTypeNumpyType();
+		Value enc;
+		int typenum = x->GetSubTypeNumpyType(enc);
 #define SET_QUANTITY_(npT, T, subT)					\
 		case (npT): {						\
 		    v->subtype = subT;					\
@@ -1819,7 +1820,8 @@ struct PyHandler {
 		RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 		QuantityArrayObject* v = (QuantityArrayObject*) QuantityArray_Type.tp_alloc(&QuantityArray_Type, 0);
 		value = (PyObject*)v;
-		int typenum = x->GetSubTypeNumpyType();
+		Value enc;
+		int typenum = x->GetSubTypeNumpyType(enc);
 #define SET_QUANTITY_(npT, T, subT)					\
 		case (npT): {						\
 		    v->subtype = subT;					\
