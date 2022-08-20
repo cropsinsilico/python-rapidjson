@@ -30,6 +30,7 @@
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/error/en.h"
 #include "units.cpp"
+#include "geometry.cpp"
 
 
 using namespace rapidjson;
@@ -51,6 +52,7 @@ using namespace rapidjson;
 
 
 static PyObject* units_submodule = NULL;
+static PyObject* geom_submodule = NULL;
 static PyObject* decimal_type = NULL;
 static PyObject* timezone_type = NULL;
 static PyObject* timezone_utc = NULL;
@@ -1849,6 +1851,11 @@ struct PyHandler {
 		}
 #undef SET_QUANTITY_
 	    }
+	} else if (x->IsPly()) {
+	    PlyObject* v = (PlyObject*) Ply_Type.tp_alloc(&Ply_Type, 0);
+	    value = (PyObject*)v;
+	    v->ply = new Ply();
+	    x->GetPly(*v->ply);
 	} else {
 	    value = x->GetPythonObjectRaw();
 	}
@@ -3266,6 +3273,16 @@ PythonAccept(
 	delete x;
 	if (!ret)
 	    PyErr_Format(PyExc_TypeError, "Error serializing QuantityArray");
+	return ret;
+    } else if (PyObject_IsInstance(object, (PyObject*)&Ply_Type)) {
+	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+	PlyObject* v = (PlyObject*) object;
+	Value* x = new Value();
+	x->SetPlyRaw(*v->ply, &allocator);
+	bool ret = x->Accept(*handler);
+	delete x;
+	if (!ret)
+	    PyErr_Format(PyExc_TypeError, "Error serializing Ply instance");
 	return ret;
     } else if (!((object == Py_None) ||
 		 PyBool_Check(object) ||
@@ -6020,6 +6037,15 @@ module_exec(PyObject* m)
     units_submodule = add_submodule(m, "units", (PyModuleDef*)units_submodule_def);
     if (units_submodule == NULL) {
 	Py_DECREF(units_submodule_def);
+	return -1;
+    }
+
+    PyObject* geom_submodule_def = PyInit_geom();
+    if (geom_submodule_def == NULL)
+	return -1;
+    geom_submodule = add_submodule(m, "geometry", (PyModuleDef*)geom_submodule_def);
+    if (geom_submodule == NULL) {
+	Py_DECREF(geom_submodule_def);
 	return -1;
     }
 

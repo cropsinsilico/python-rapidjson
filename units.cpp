@@ -525,7 +525,7 @@ static PyGetSetDef quantity_properties[] = {
     {"units", quantity_units_get, quantity_units_set,
      "The rapidjson.Units units for the quantity.", NULL},
     {"value", quantity_value_get, quantity_value_set,
-     "The quantity's value (in the current unit system)."},
+     "The quantity's value (in the current unit system).", NULL},
     {NULL}
 };
 
