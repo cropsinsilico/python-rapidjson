@@ -31,8 +31,16 @@ def test_scalars(dumps, loads, np_type):
 ])
 def test_strings(dumps, loads, type_str, values):
     value = np.array(values, dtype=type_str)
+    import gc; gc.collect()
+    print('HERE1')
     dumped = dumps(value)
+    gc.collect()
+    print('HERE2')
+    print(dumped)
     loaded = loads(dumped)
+    gc.collect()
+    print('HERE3')
+    print(loaded)
     assert loaded == value
 
 
