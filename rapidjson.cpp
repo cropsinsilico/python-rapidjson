@@ -1856,6 +1856,11 @@ struct PyHandler {
 	    value = (PyObject*)v;
 	    v->ply = new Ply();
 	    x->GetPly(*v->ply);
+	} else if (x->IsObjWavefront()) {
+	    ObjWavefrontObject* v = (ObjWavefrontObject*) ObjWavefront_Type.tp_alloc(&ObjWavefront_Type, 0);
+	    value = (PyObject*)v;
+	    v->obj = new ObjWavefront();
+	    x->GetObjWavefront(*v->obj);
 	} else {
 	    value = x->GetPythonObjectRaw();
 	}
@@ -3283,6 +3288,16 @@ PythonAccept(
 	delete x;
 	if (!ret)
 	    PyErr_Format(PyExc_TypeError, "Error serializing Ply instance");
+	return ret;
+    } else if (PyObject_IsInstance(object, (PyObject*)&ObjWavefront_Type)) {
+	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+	ObjWavefrontObject* v = (ObjWavefrontObject*) object;
+	Value* x = new Value();
+	x->SetObj(*v->obj, &allocator);
+	bool ret = x->Accept(*handler);
+	delete x;
+	if (!ret)
+	    PyErr_Format(PyExc_TypeError, "Error serializing ObjWavefront instance");
 	return ret;
     } else if (!((object == Py_None) ||
 		 PyBool_Check(object) ||
