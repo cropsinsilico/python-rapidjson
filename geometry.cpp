@@ -268,32 +268,34 @@ static PyObject* ply_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 
 
 static PyObject* ply_richcompare(PyObject *self, PyObject *other, int op) {
+    PyObject* value = NULL;
     if (!PyObject_IsInstance(other, (PyObject*)&Ply_Type)) {
 	switch (op) {
 	case (Py_EQ):
-	    return Py_False;
+	    value = Py_False;
+	    break;
 	case (Py_NE):
-	    return Py_True;
+	    value = Py_True;
+	    break;
 	default:
-	    return Py_NotImplemented;
+	    value = Py_NotImplemented;
+	}
+    } else {
+	PlyObject* vself = (PlyObject*) self;
+	PlyObject* vsolf = (PlyObject*) other;
+	switch (op) {
+	case (Py_EQ):
+	    value = (*(vself->ply) == *(vsolf->ply)) ? Py_True : Py_False;
+	    break;
+	case (Py_NE):
+	    value = (*(vself->ply) != *(vsolf->ply)) ? Py_True : Py_False;
+	    break;
+	default:
+	    value = Py_NotImplemented;
 	}
     }
-    PlyObject* vself = (PlyObject*) self;
-    PlyObject* vsolf = (PlyObject*) other;
-    switch (op) {
-    case (Py_EQ): {
-	if (*(vself->ply) == *(vsolf->ply))
-	    return Py_True;
-	return Py_False;
-    }
-    case (Py_NE): {
-	if (*(vself->ply) != *(vsolf->ply))
-	    return Py_True;
-	return Py_False;
-    }
-    default:
-	return Py_NotImplemented;
-    }
+    Py_INCREF(value);
+    return value;
 }
 
 static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
@@ -1261,32 +1263,34 @@ static PyObject* objwavefront_new(PyTypeObject* type, PyObject* args, PyObject* 
 
 
 static PyObject* objwavefront_richcompare(PyObject *self, PyObject *other, int op) {
+    PyObject* value = NULL;
     if (!PyObject_IsInstance(other, (PyObject*)&ObjWavefront_Type)) {
 	switch (op) {
 	case (Py_EQ):
-	    return Py_False;
+	    value = Py_False;
+	    break;
 	case (Py_NE):
-	    return Py_True;
+	    value = Py_True;
+	    break;
 	default:
-	    return Py_NotImplemented;
+	    value = Py_NotImplemented;
+	}
+    } else {
+	ObjWavefrontObject* vself = (ObjWavefrontObject*) self;
+	ObjWavefrontObject* vsolf = (ObjWavefrontObject*) other;
+	switch (op) {
+	case (Py_EQ):
+	    value = (*(vself->obj) == *(vsolf->obj)) ? Py_True : Py_False;
+	    break;
+	case (Py_NE):
+	    value = (*(vself->obj) != *(vsolf->obj)) ? Py_True : Py_False;
+	    break;
+	default:
+	    value = Py_NotImplemented;
 	}
     }
-    ObjWavefrontObject* vself = (ObjWavefrontObject*) self;
-    ObjWavefrontObject* vsolf = (ObjWavefrontObject*) other;
-    switch (op) {
-    case (Py_EQ): {
-	if (*(vself->obj) == *(vsolf->obj))
-	    return Py_True;
-	return Py_False;
-    }
-    case (Py_NE): {
-	if (*(vself->obj) != *(vsolf->obj))
-	    return Py_True;
-	return Py_False;
-    }
-    default:
-	return Py_NotImplemented;
-    }
+    Py_INCREF(value);
+    return value;
 }
 
 static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
