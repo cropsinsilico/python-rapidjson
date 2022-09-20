@@ -1353,16 +1353,17 @@ static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObj
 	    Py_ssize_t i = 0;
 	    for (std::vector<ObjElement*>::const_iterator elit = v->obj->elements.begin(); elit != v->obj->elements.end(); elit++) {
 		if ((*elit)->code != elementType) continue;
-		std::vector<std::string> propertyOrder = (*elit)->property_order();
 		PyObject* item = PyDict_New();
 		if (item == NULL) {
 		    Py_DECREF(val);
 		    Py_DECREF(out);
 		    return NULL;
 		}
-		for (std::vector<std::string>::const_iterator p = propertyOrder.begin(); p != propertyOrder.end(); p++) {
+		for (ObjPropertiesMap::const_iterator p = (*elit)->properties.begin();
+		     p != (*elit)->properties.end(); p++) {
 		    PyObject* ival = NULL;
-		    if ((*elit)->is_vector(*p)) {
+		    if (!(*elit)->has_property(p->first, true)) continue;
+		    if (p->is_vector()) {
 			ival = PyList_New((*elit)->size());
 			if (ival == NULL) {
 			    Py_DECREF(item);
@@ -1372,9 +1373,15 @@ static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObj
 			}
 #define GET_ARRAY_(type, method)					\
 			std::vector<type> values;			\
-			(*elit)->get_property_array(*p, values, true);	\
+			if (!p->get(values)) {				\
+			    Py_DECREF(ival);				\
+			    Py_DECREF(item);				\
+			    Py_DECREF(val);				\
+			    Py_DECREF(out);				\
+			    return NULL;				\
+			}						\
 			for (size_t iProp = 0; iProp < values.size(); iProp++) { \
-			    PyObject* iival = method(values[iProp]);	\
+			    PyObject* iival = method;			\
 			    if (iival == NULL) {			\
 				Py_DECREF(ival);			\
 				Py_DECREF(item);			\
@@ -1391,31 +1398,52 @@ static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObj
 				return NULL;				\
 			    }						\
 	                }
-			
-			if ((*elit)->requires_double(*p)) {
-			    GET_ARRAY_(double, PyFloat_FromDouble);
+
+			if (_type_compatible_double(p->second)) {
+			    GET_ARRAY_(double, PyFloat_FromDouble(values[iProp]));
+			} else if (_type_compatible_int(p->second)) {
+			    GET_ARRAY_(int, PyLong_FromLong(values[iProp]));
+			} else if (_type_compatible_string(p->second)) {
+			    GET_ARRAY_(std::string, PyUnicode_FromString(values[iProp].c_str()));
 			} else {
-			    GET_ARRAY_(int, PyLong_FromLong);
+			    Py_DECREF(item);
+			    Py_DECREF(val);
+			    Py_DECREF(out);
+			    PyErr_SetString(PyExc_TypeError, "Could not find a Python type to match the C++ type");
+			    return NULL;
 			}
 
 #undef GET_ARRAY_
-			
-		    } else if ((*elit)->requires_double(*p)) {
-			std::vector<double> values;
-			(*elit)->get_property_array(*p, values, true);
-			ival = PyFloat_FromDouble(values[0]);
+#define GET_SCALAR_(type, method)				\
+			type value;					\
+			if (!p->get(value)) {				\
+			    Py_DECREF(item);				\
+			    Py_DECREF(val);				\
+			    Py_DECREF(out);				\
+			    return NULL;				\
+			}						\
+			ival = method
+		    } else if (_type_compatible_double(p->second)) {
+			GET_SCALAR_(double, PyFloat_FromDouble(value));
+		    } else if (_type_compatible_int(p->second)) {
+			GET_SCALAR_(int, PyLong_FromLong(value));
+		    } else if (_type_compatible_string(p->second)) {
+			GET_SCALAR_(std::string, PyUnicode_FromString(value.c_str()));
 		    } else {
-			std::vector<int> values;
-			(*elit)->get_property_array(*p, values);
-			ival = PyLong_FromLong((long)values[0]);
+			Py_DECREF(item);
+			Py_DECREF(val);
+			Py_DECREF(out);
+			PyErr_SetString(PyExc_TypeError, "Could not find a Python type to match the C++ type");
+			return NULL;
 		    }
+#undef GET_SCALAR_
 		    if (ival == NULL) {
 			Py_DECREF(item);
 			Py_DECREF(val);
 			Py_DECREF(out);
 			return NULL;
 		    }
-		    if (PyDict_SetItemString(item, p->c_str(), ival) < 0) {
+		    if (PyDict_SetItemString(item, p->first.c_str(), ival) < 0) {
 			Py_DECREF(ival);
 			Py_DECREF(item);
 			Py_DECREF(val);
@@ -1465,96 +1493,226 @@ static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObj
 	for (Py_ssize_t i = 0; i < PyList_Size(x); i++) {
 	    PyObject* item = PyList_GetItem(x, i);
 	    if (item == NULL) return NULL;
-	    if (PyDict_Check(item)) {
+	    if (PyDict_Check(item)) { // Dictionary of element properties
 		PyObject *key, *value;
 		Py_ssize_t pos = 0;
-		bool isDouble = false;
-		std::vector<double> values;
-		std::vector<std::string> names;
+		ObjElement* new_element = v->obj->add_element(name);
+		if (!new_element) {
+		    PyErr_SetString(geom_error, "Error adding element to ObjWavefront instance");
+		    return NULL;
+		}
+		if (!new_element->set_meta_properties(PyDict_Size(item))) {
+		    PyErr_SetString(geom_error, "Error setting metadata for ObjWavefront element.");
+		    return NULL;
+		}
 		while (PyDict_Next(item, &pos, &key, &value)) {
 		    if (!PyUnicode_Check(key)) {
 			PyErr_SetString(PyExc_TypeError, "ObjWavefront element keys must be strings");
 			return NULL;
 		    }
 		    std::string iname = std::string(PyUnicode_AsUTF8(key));
-		    names.push_back(iname);
+#define HANDLE_SCALAR_(type, method)					\
+		    type ivalue = method;				\
+		    if (!new_element->set_property(iname, ivalue)) {	\
+			PyErr_SetString(geom_error, "Error adding " #type " value to ObjWavefront element"); \
+			return NULL;					\
+		    }
+#define HANDLE_SCALAR_NPY_(type, npy_type)				\
+		    type ivalue;					\
+		    PyArray_Descr* desc = PyArray_DescrNewFromType(npy_type); \
+		    PyArray_CastScalarToCtype(value, &ivalue, desc);	\
+		    Py_DECREF(desc);					\
+		    if (!new_element->set_property(iname, ivalue)) {	\
+			PyErr_SetString(geom_error, "Error adding " #type " numpy scalar value to ObjWavefront element"); \
+			return NULL;					\
+		    }
+#define HANDLE_ARRAY_(type, check, method)				\
+		    std::vector<type> values;				\
+		    for (Py_ssize_t j = 0; j < PyList_Size(value); j++) { \
+			PyObject* vv = PyList_GetItem(value, j);	\
+			if (vv == NULL) return NULL;			\
+			if (!check(vv)) {				\
+			    PyErr_SetString(geom_error, "Error adding " #type " values array to ObjWavefront element. Not all elements are the same type."); \
+			    return NULL;				\
+			}						\
+			values.push_back(method);			\
+		    }							\
+		    if (!new_element->set_property(iname, values)) {	\
+			PyErr_SetString(geom_error, "Error adding " #type " values to ObjWavefront element"); \
+			return NULL;					\
+		    }
+#define HANDLE_ARRAY_NPY_(type, check, npy_type)			\
+		    std::vector<type> values;				\
+		    for (Py_ssize_t j = 0; j < PyList_Size(value); j++) { \
+			PyObject* vv = PyList_GetItem(value, j);	\
+			if (vv == NULL) return NULL;			\
+			if (!PyArray_CheckScalar(vv)) {			\
+			    PyErr_SetString(geom_error, "Error adding " #type " values array to ObjWavefront element. Not all elements are numpy scalars."); \
+			    return NULL;				\
+			}						\
+			PyArray_Descr* desc0 = PyArray_DescrFromScalar(vv); \
+			if (!check(desc0)) {				\
+			    PyErr_SetString(geom_error, "Error adding " #type " values array to ObjWavefront element from numpy scalars. Not all elements are the same type."); \
+			    return NULL;				\
+			}						\
+			type ivalue;					\
+			PyArray_Descr* desc = PyArray_DescrNewFromType(npy_type); \
+			PyArray_CastScalarToCtype(vv, &ivalue, desc);	\
+			values.push_back(ivalue);			\
+			Py_DECREF(desc);				\
+		    }							\
+		    if (!new_element->set_property(iname, values)) {	\
+			PyErr_SetString(geom_error, "Error adding " #type " values to ObjWavefront element"); \
+			return NULL;					\
+		    }
+		    
 		    if (PyLong_Check(value)) {
-			values.push_back(PyLong_AsDouble(value));
+			HANDLE_SCALAR_(int, static_cast<int>(PyLong_AsLong(value)));
 		    } else if (PyFloat_Check(value)) {
-			values.push_back(PyFloat_AsDouble(value));
-			isDouble = true;
-		    } else if (PyList_Check(value)) {
-			for (Py_ssize_t j = 0; j < PyList_Size(value); j++) {
-			    PyObject* vv = PyList_GetItem(value, j);
-			    if (vv == NULL) return NULL;
-			    if (PyLong_Check(vv)) {
-				values.push_back(PyLong_AsDouble(vv));
-			    } else if (PyFloat_Check(vv)) {
-				values.push_back(PyFloat_AsDouble(vv));
-				isDouble = true;
-			    } else if (PyArray_CheckScalar(vv)) {
-				PyArray_Descr* desc0 = PyArray_DescrFromScalar(vv);
-				if (PyDataType_ISFLOAT(desc0))
-				    isDouble = true;
-				PyArray_Descr* desc = PyArray_DescrNewFromType(NPY_FLOAT64);
-				double d = 0;
-				PyArray_CastScalarToCtype(vv, &d, desc);
-				values.push_back(d);
-				Py_DECREF(desc);
-			    } else {
-				PyErr_SetString(PyExc_TypeError, "ObjWavefront element list values must be integers or floats");
-				return NULL;
-			    }
-			}
+			HANDLE_SCALAR_(double, PyFloat_AsDouble(value));
+		    } else if (PyUnicode_Check(value)) {
+			HANDLE_SCALAR_(std::string, std::string(PyUnicode_AsUTF8(value)));
 		    } else if (PyArray_CheckScalar(value)) {
 			PyArray_Descr* desc0 = PyArray_DescrFromScalar(value);
-			if (PyDataType_ISFLOAT(desc0))
-			    isDouble = true;
-			PyArray_Descr* desc = PyArray_DescrNewFromType(NPY_FLOAT64);
-			double d = 0;
-			PyArray_CastScalarToCtype(value, &d, desc);
-			values.push_back(d);
-			Py_DECREF(desc);
+			if (PyDataType_ISINTEGER(desc0)) {
+			    HANDLE_SCALAR_NPY_(int, NPY_INT32);
+			} else if (PyDataType_ISFLOAT(desc0)) {
+			    HANDLE_SCALAR_NPY_(double, NPY_FLOAT64);
+			} else if (PyDataType_ISSTRING(desc0)) {
+			    HANDLE_SCALAR_NPY_(std::string, NPY_UNICODE);
+			} else {
+			    PyErr_SetString(PyExc_TypeError, "ObjWavefront element property value must be integer, float, or string");
+			    return NULL;
+			}
+		    } else if (PyList_Check(value)) {
+			PyObject* first_item = PyList_GetItem(value, 0);
+			if (first_item == NULL) return NULL;
+			if (PyLong_Check(first_item)) {
+			    HANDLE_ARRAY_(int, PyLong_Check, static_cast<int>(PyLong_AsLong(vv)));
+			} else if (PyFloat_Check(first_item)) {
+			    HANDLE_ARRAY_(double, PyFloat_Check, PyFloat_AsDouble(vv));
+			} else if (PyUnicode_Check(first_item)) {
+			    HANDLE_ARRAY_(std::string, PyUnicode_Check, std::string(PyUnicode_AsUTF8(vv)));
+			} else if (PyArray_CheckScalar(first_item)) {
+			    PyArray_Descr* first_desc = PyArray_DescrFromScalar(first_item);
+			    if (PyDataType_ISINTEGER(first_desc)) {
+				HANDLE_ARRAY_NPY_(int, PyDataType_ISINTEGER, NPY_INT32);
+			    } else if (PyDataType_ISFLOAT(first_desc)) {
+				HANDLE_ARRAY_NPY_(double, PyDataType_ISFLOAT, NPY_FLOAT64);
+			    } else if (PyDataType_ISSTRING(first_desc)) {
+				HANDLE_ARRAY_NPY_(std::string, PyDataType_ISSTRING, NPY_UNICODE);
+			    } else {
+				PyErr_SetString(PyExc_TypeError, "ObjWavefront element list values must be integers, floats, or strings");
+				return NULL;
+			    }
+			} else {
+			    PyErr_SetString(PyExc_TypeError, "ObjWavefront element list values must be integers, floats, or strings");
+			    return NULL;
+			}
+#undef HANDLE_SCALAR_
+#undef HANDLE_SCALAR_NPY_
+#undef HANDLE_ARRAY_
+#undef HANDLE_ARRAY_NPY_
 		    } else {
-			PyErr_SetString(PyExc_TypeError, "ObjWavefront element values must be integers or floats");
+			PyErr_SetString(PyExc_TypeError, "ObjWavefront element property values must be integers, floats, strings, or lists of those types.");
 			return NULL;
 		    }
 		}
-		if (isDouble) {
-		    double ignore = NAN;
-		    v->obj->add_element(name, values, &ignore);
-		} else {
-		    int ignore = 0;
-		    std::vector<int> values_int;
-		    for (std::vector<double>::iterator it = values.begin(); it != values.end(); it++)
-			values_int.push_back((int)(*it));
-		    v->obj->add_element(name, values_int, &ignore);
+	    } else if (PyList_Check(item)) { // List of element properties
+		ObjElement* new_element = v->obj->add_element(name);
+		if (!new_element) {
+		    PyErr_SetString(geom_error, "Error adding element to ObjWavefront instance");
+		    return NULL;
 		}
-	    } else if (PyList_Check(item)) {
-		bool isDouble = false;
-		std::vector<double> values;
+		Py_ssize_t item_size = PyList_Size(item);
+		if (!new_element->set_meta_properties(item_size)) {
+		    PyErr_SetString(geom_error, "Error setting metadata for ObjWavefront element.");
+		    return NULL;
+		}
+		int min_size = new_element->min_values();
+		int max_size = new_element->max_values();
+		if ((min_size >= 0 && item_size < (Py_ssize_t)min_size) ||
+		    (max_size >= 0 && item_size > (Py_ssize_t)max_size)) {
+		    PyErr_SetString(geom_error, "Error adding element to ObjWavefront instance. Incorrect number of property values.");
+		    return NULL;
+		}
 		for (Py_ssize_t j = 0; j < PyList_Size(item); j++) {
 		    PyObject* value = PyList_GetItem(item, j);
 		    if (value == NULL) return NULL;
+#define HANDLE_SCALAR_(method)						\
+		    if (!new_element->set_property(static_cast<size_t>(j), \
+						   method)) {		\
+			PyErr_SetString(geom_error, "Error setting ObjWavefront element property."); \
+			return NULL;					\
+		    }
 		    if (PyLong_Check(value)) {
-			values.push_back(PyLong_AsDouble(value));
+			HANDLE_SCALAR_(static_cast<int>(PyLong_AsLong(value)));
 		    } else if (PyFloat_Check(value)) {
-			values.push_back(PyFloat_AsDouble(value));
-			isDouble = true;
+			HANDLE_SCALAR_(PyFloat_AsDouble(value));
+		    } else if (PyUnicode_Check(value)) {
+			HANDLE_SCALAR_(std::string(PyUnicode_AsUTF8(value)));
+#undef HANDLE_SCALAR_
+		    } else if (PyDict_Check(value)) {
+#define HANDLE_SCALAR_(type, method)					\
+			type ivalue = method;				\
+			if (!last_sub->set_property(keyS, ivalue)) {	\
+			    PyErr_SetString(geom_error, "Error setting subelement property for ObjWavefront element.");	\
+			    return NULL;				\
+			}
+			if (!new_element->add_subelement()) {
+			    PyErr_SetString(geom_error, "Error adding subelement to ObjWavefront element.");
+			    return NULL;
+			}
+			bool temp = false;
+			ObjPropertyElement* last_sub = new_element->last_subelement(&temp);
+			if (!last_sub) {
+			    PyErr_SetString(geom_error, "Error retrieving last subelement from ObjWavefront element.");
+			    return NULL;
+			}
+			PyObject *key, *key_value;
+			Py_ssize_t pos = 0;
+			while (PyDict_Next(value, &pos, &key, &key_value)) {
+			    std::string keyS = PyUnicode_AsUTF8(key);
+			    if (PyLong_Check(key_value)) {
+				HANDLE_SCALAR_(int, static_cast<int>(PyLong_AsLong(key_value)));
+			    } else if (PyFloat_Check(key_value)) {
+				HANDLE_SCALAR_(double, PyFloat_AsDouble(key_value));
+			    } else if (PyUnicode_Check(key_value)) {
+				HANDLE_SCALAR_(std::string, std::string(PyUnicode_AsUTF8(key_value)));
+			    // } else if (PyList_Check(key_value)) {
+			    // 	PyObject* first_item = PyList_GetItem(value, 0);
+			    // 	if (first_item == NULL) return NULL;
+				
+			    // 	for (Py_ssize_t k = 0; k < PyList_Size(key_value); k++) {
+			    // 	    PyObject* kvv = PyList_GetItem(key_value, k);
+			    // 	    if (kvv == NULL) return NULL;
+			    // 	    if (PyLong_Check(kvv)) {
+			    // 		it->second.push_back(PyLong_AsDouble(kvv));
+			    // 	    } else if (PyFloat_Check(kvv)) {
+			    // 		it->second.push_back(PyFloat_AsDouble(kvv));
+			    // 	    } else {
+			    // 		PyErr_SetString(PyExc_TypeError, "ObjWavefront element parameter list values must be integers or floats");
+			    // 		return NULL;
+			    // 	    }
+			    // 	}
+			    } else {
+				PyErr_SetString(PyExc_TypeError, "ObjWavefront element subelements must be integers, floats, or strings");
+				return NULL;
+			    }
+			}
+			if (temp) {
+			    delete last_sub;
+			}
+#undef HANDLE_SCALAR_
 		    } else {
 			PyErr_SetString(PyExc_TypeError, "ObjWavefront element list values must be integers or floats");
 			return NULL;
 		    }
 		}
-		if (isDouble) {
-		    double ignore = NAN;
-		    v->obj->add_element(name, values, &ignore);
-		} else {
-		    std::vector<int> values_int;
-		    for (std::vector<double>::iterator it = values.begin(); it != values.end(); it++)
-			values_int.push_back((int)(*it));
-		    int ignore = 0;
-		    v->obj->add_element(name, values_int, &ignore);
+		std::map<std::string,size_t> counts = v->obj->element_counts();
+		if (!new_element->is_valid_idx(counts)) {
+		    PyErr_SetString(geom_error, "New ObjWavefront element is invalid");
+		    return NULL;
 		}
 	    } else {
 		PyErr_SetString(PyExc_TypeError, "ObjWavefront elements must be lists, integers, or floats");

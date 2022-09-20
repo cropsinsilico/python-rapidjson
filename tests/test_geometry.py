@@ -135,6 +135,9 @@ def mesh_args_factory(mesh_base, mesh_array, mesh_dict):
     def args_factory(args=["vertices", "faces", "edges"], kwargs=[],
                      as_array=False, as_list=False, with_colors=False,
                      stack=1, obj=False):
+        zero = 0
+        if obj:
+            zero = 1
         base_ = mesh_base(stack=stack, obj=obj)
         mesh_array_ = mesh_array(base_, with_colors=with_colors)
         mesh_dict_ = mesh_dict(base_, with_colors=with_colors, obj=obj)
@@ -169,12 +172,27 @@ def mesh_args_factory(mesh_base, mesh_array, mesh_dict):
         else:
             oresult['mesh'] = []
         if as_list:
-            oargs = tuple([base[aliases.get(k, k)].tolist() for k in args])
+            oargs = [base[aliases.get(k, k)].tolist() for k in args]
             okwargs = {k: base[aliases.get(k, k)].tolist() for k in kwargs}
+            if "faces" in kwargs:
+                okwargs['faces'] = [[x for x in element if x != (zero - 1)]
+                                    for element in okwargs['faces']]
+                if obj:
+                    okwargs['faces'][-1] = [
+                        {"vertex_index": x} for x in
+                        okwargs['faces'][-1]['vertex_index']]
+            elif "faces" in args:
+                idx_faces = args.index("faces")
+                oargs[idx_faces] = [[x for x in element if x != (zero - 1)]
+                                    for element in oargs[idx_faces]]
+                if obj:
+                    oargs[idx_faces][-1] = [
+                        {"vertex_index": x} for x in
+                        oargs[idx_faces][-1]]
         else:
-            oargs = tuple([base[aliases.get(k, k)] for k in args])
+            oargs = [base[aliases.get(k, k)] for k in args]
             okwargs = {k: base[aliases.get(k, k)] for k in kwargs}
-        return oargs, okwargs, oresult
+        return tuple(oargs), okwargs, oresult
 
     return args_factory
 
