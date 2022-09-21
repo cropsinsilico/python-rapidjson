@@ -224,8 +224,10 @@ def test_Ply(mesh_args_factory, factory_options):
     x = geometry.Ply(*args, **kwargs)
     with pytest.raises(KeyError):
         x['invalid']
+    assert 'invalid' not in x
     assert x.as_dict() == result['dict']
     if 'vertex' in result['dict']:
+        assert 'vertex' in x
         np.testing.assert_array_equal(x.as_dict(as_array=True)['vertex'],
                                       result['arr']['vertex'])
         assert x.get_elements("vertex") == result['dict']['vertex']
@@ -356,8 +358,10 @@ def test_Obj(mesh_args_factory, factory_options):
     x = geometry.ObjWavefront(*args, **kwargs)
     with pytest.raises(KeyError):
         x['invalid']
+    assert 'invalid' not in x
     assert x.as_dict() == result['dict']
     if 'vertex' in result['dict']:
+        assert 'vertex' in x
         np.testing.assert_array_equal(x.as_dict(as_array=True)['vertex'],
                                       result['arr']['vertex'])
         assert x.get_elements("vertex") == result['dict']['vertex']

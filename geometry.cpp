@@ -44,6 +44,7 @@ static PyObject* ply_mesh_get(PyObject* self, void*);
 static PyObject* ply_str(PyObject* self);
 static Py_ssize_t ply_size(PyObject* self);
 static PyObject* ply_subscript(PyObject* self, PyObject* key);
+static int ply_contains(PyObject* self, PyObject* value);
 static PyObject* ply_add_colors(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_get_colors(PyObject* self, PyObject* args, PyObject* kwargs);
 
@@ -63,6 +64,7 @@ static PyObject* objwavefront_mesh_get(PyObject* self, void*);
 static PyObject* objwavefront_str(PyObject* self);
 static Py_ssize_t objwavefront_size(PyObject* self);
 static PyObject* objwavefront_subscript(PyObject* self, PyObject* key);
+static int objwavefront_contains(PyObject* self, PyObject* value);
 static PyObject* objwavefront_add_colors(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_get_colors(PyObject* self, PyObject* args, PyObject* kwargs);
 
@@ -128,6 +130,13 @@ static PyMappingMethods ply_mapping = {
 };
 
 
+static PySequenceMethods ply_seq = {
+    ply_size, NULL, NULL, NULL, NULL, NULL, NULL,
+    ply_contains,
+    NULL, NULL
+};
+
+
 static PyTypeObject Ply_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "rapidjson.Ply",                /* tp_name */
@@ -140,7 +149,7 @@ static PyTypeObject Ply_Type = {
     0,                              /* tp_compare */
     0,                              /* tp_repr */
     0,                              /* tp_as_number */
-    0,                              /* tp_as_sequence */
+    &ply_seq,                       /* tp_as_sequence */
     &ply_mapping,                   /* tp_as_mapping */
     0,                              /* tp_hash */
     0,                              /* tp_call */
@@ -812,6 +821,30 @@ static PyObject* ply_subscript(PyObject* self, PyObject* key) {
 }
 
 
+static int ply_contains(PyObject* self, PyObject* value) {
+    const char* elementType0;
+
+    if (PyUnicode_Check(value)) {
+	elementType0 = PyUnicode_AsUTF8(value);
+	if (elementType0 == NULL) {
+	    return -1;
+	}
+    } else {
+	return 0;
+    }
+
+    std::string elementType(elementType0);
+
+    PlyObject* v = (PlyObject*) self;
+
+    if (v->ply->count_elements(elementType) == 0) {
+	return 0;
+    }
+
+    return 1;
+}
+
+
 static PyObject* ply_add_colors(PyObject* self, PyObject* args, PyObject* kwargs) {
     const char* name0 = 0;
     PyObject* x = NULL;
@@ -1104,6 +1137,12 @@ static PyMappingMethods objwavefront_mapping = {
     objwavefront_size, objwavefront_subscript, NULL
 };
 
+static PySequenceMethods objwavefront_seq = {
+    objwavefront_size, NULL, NULL, NULL, NULL, NULL, NULL,
+    objwavefront_contains,
+    NULL, NULL
+};
+
 
 static PyTypeObject ObjWavefront_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
@@ -1117,7 +1156,7 @@ static PyTypeObject ObjWavefront_Type = {
     0,                                  /* tp_compare */
     0,                                  /* tp_repr */
     0,                                  /* tp_as_number */
-    0,                                  /* tp_as_sequence */
+    &objwavefront_seq,                  /* tp_as_sequence */
     &objwavefront_mapping,              /* tp_as_mapping */
     0,                                  /* tp_hash */
     0,                                  /* tp_call */
@@ -1946,6 +1985,30 @@ static PyObject* objwavefront_subscript(PyObject* self, PyObject* key) {
     PyObject* out = objwavefront_get_elements(self, iargs, NULL);
     Py_DECREF(iargs);
     return out;
+}
+
+
+static int objwavefront_contains(PyObject* self, PyObject* value) {
+    const char* elementType0;
+
+    if (PyUnicode_Check(value)) {
+	elementType0 = PyUnicode_AsUTF8(value);
+	if (elementType0 == NULL) {
+	    return -1;
+	}
+    } else {
+	return 0;
+    }
+
+    std::string elementType = obj_alias2base(std::string(elementType0));
+
+    ObjWavefrontObject* v = (ObjWavefrontObject*) self;
+
+    if (v->obj->count_elements(elementType) == 0) {
+	return 0;
+    }
+
+    return 1;
 }
 
 
