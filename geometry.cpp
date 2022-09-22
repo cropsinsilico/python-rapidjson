@@ -22,7 +22,7 @@ using namespace rapidjson;
 static PyObject* geom_error = NULL;
 
 
-// TODO: method to add_colors/get_colors
+// TODO: classes for element sets, elements, subtypes to allow set via dict?
 
 
 //////////////////////////

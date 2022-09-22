@@ -5174,10 +5174,10 @@ validate(PyObject* self, PyObject* args, PyObject* kwargs)
 
 
 PyDoc_STRVAR(encode_schema_docstring,
-             "encode_schema(obj, object_hook=None, number_mode=None,"
-	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
-	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
-	     " allow_nan=True)\n"
+             "encode_schema(obj, minimal=False, object_hook=None,"
+	     " number_mode=None, datetime_mode=None, uuid_mode=None,"
+	     " bytes_mode=BM_UTF8, iterable_mode=IM_ANY_ITERABLE,"
+	     " mapping_mode=MM_ANY_MAPPING, allow_nan=True)\n"
              "\n"
 	     "Encode a schema for a Python object.");
 
@@ -5186,6 +5186,7 @@ static PyObject*
 encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject;
+    int minimalSchema = 0;
     PyObject* objectHook = NULL;
     PyObject* numberModeObj = NULL;
     unsigned numberMode = NM_NAN;
@@ -5202,6 +5203,7 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
     int allowNan = -1;
     static char const* kwlist[] = {
 	"obj",
+	"minimal",
         "object_hook"
         "number_mode",
         "datetime_mode",
@@ -5216,9 +5218,10 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
         NULL
     };
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOOOp:encode_schema",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$pOOOOOOOp:encode_schema",
                                      (char**) kwlist,
 				     &jsonObject,
+				     &minimalSchema,
                                      &objectHook,
                                      &numberModeObj,
                                      &datetimeModeObj,
@@ -5264,7 +5267,7 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
 
     bool accept = false;
 
-    SchemaEncoder schema_encoder;
+    SchemaEncoder schema_encoder(minimalSchema);
     accept = d.Accept(schema_encoder);
     if (!accept) {
 	PyErr_SetString(decode_error, "Error encoding schema");

@@ -27,6 +27,7 @@ import rapidjson as rj
 ))
 def test_encode_schema(value, schema):
     assert rj.encode_schema(value) == schema
+    assert rj.encode_schema(value, minimal=True) == schema
 
 
 @pytest.mark.parametrize('value_str,schema', (
@@ -37,6 +38,7 @@ def test_encode_schema(value, schema):
 def test_encode_schema_python(value_str, schema, request):
     value = request.getfixturevalue(value_str)
     assert rj.encode_schema(value) == schema
+    assert rj.encode_schema(value, minimal=True) == schema
 
 
 @pytest.mark.parametrize('np_type,schema', (
@@ -57,6 +59,7 @@ def test_encode_schema_scalars(np_type, schema):
     schema["type"] = "scalar"
     value = np_type(3)
     assert rj.encode_schema(value) == schema
+    assert rj.encode_schema(value, minimal=True) == schema
 
 
 @pytest.mark.parametrize('np_type,schema', (
@@ -69,6 +72,7 @@ def test_encode_schema_scalars(np_type, schema):
 def test_encode_schema_castable(np_type, schema):
     value = np_type(3)
     assert rj.encode_schema(value) == schema
+    assert rj.encode_schema(value, minimal=True) == schema
 
 
 @pytest.mark.parametrize('np_type,schema', (
@@ -87,6 +91,8 @@ def test_encode_schema_castable(np_type, schema):
     (np.complex128, {"subtype": "complex", "precision": 16})
 ))
 def test_encode_schema_arrays(np_type, schema):
+    minimal_schema = dict(schema, type="ndarray")
     schema.update({"type": "ndarray", "shape": [3, 4]})
     value = np.ones((3, 4), dtype=np_type)
     assert rj.encode_schema(value) == schema
+    assert rj.encode_schema(value, minimal=True) == minimal_schema
