@@ -256,12 +256,15 @@ def test_QuantityArray_no_units():
 
 @pytest.mark.parametrize('u1,u2,compat', compat_param)
 def test_QuantityArray_is_compatible(u1, u2, compat):
-    q1 = units.QuantityArray(np.arange(3), u1)
-    q2 = units.QuantityArray(np.arange(3), u2)
+    arr = np.arange(3)
+    q1 = units.QuantityArray(arr, u1)
+    q2 = units.QuantityArray(arr, u2)
     units2 = units.Units(u2)
     assert q1.is_compatible(units2) == compat
     assert q1.is_compatible(q2) == compat
     assert q2.is_compatible(q1) == compat
+    assert q1.shape == arr.shape
+    assert q1.shape == q2.shape
 
 
 @pytest.mark.parametrize('u1,u2,eq', equal_param)

@@ -72,6 +72,7 @@ static PyObject* quantity_array_units_get(PyObject* self, void* closure);
 static int quantity_array_units_set(PyObject* self, PyObject* value, void* closure);
 static PyObject* quantity_array_value_get(PyObject* type, void* closure);
 static int quantity_array_value_set(PyObject* self, PyObject* value, void* closure);
+static PyObject* quantity_array_shape_get(PyObject* self, void* closure);
 static PyObject* quantity_array_is_compatible(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* quantity_array_is_dimensionless(PyObject* self, PyObject* args);
 static PyObject* quantity_array_is_equivalent(PyObject* self, PyObject* args);
@@ -1267,6 +1268,8 @@ static PyGetSetDef quantity_array_properties[] = {
      "The rapidjson.Units units for the quantity.", NULL},
     {"value", quantity_array_value_get, quantity_array_value_set,
      "The quantity's value (in the current unit system)."},
+    {"shape", quantity_array_shape_get, NULL,
+     "The array's shape in each dimension."},
     {NULL}
 };
 
@@ -1505,6 +1508,32 @@ static PyObject* do_quantity_array_value_get(QuantityArray<T>* x, void*) {
 static PyObject* quantity_array_value_get(PyObject* self, void*) {
     QuantityArrayObject* v = (QuantityArrayObject*) self;
     SWITCH_QUANTITY_ARRAY_SUBTYPE_CALL(v, return do_quantity_array_value_get, NULL);
+    return NULL;
+}
+
+template<typename T>
+static PyObject* do_quantity_array_shape_get(QuantityArray<T>* x, void*) {
+    Py_ssize_t ndim = (Py_ssize_t)(x->ndim());
+    PyObject* out = PyTuple_New(ndim);
+    if (out == NULL) return NULL;
+    for (Py_ssize_t i = 0; i < ndim; i++) {
+	PyObject* item = PyLong_FromLong(static_cast<long>(x->shape()[i]));
+	if (item == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	if (PyTuple_SetItem(out, i, item) < 0) {
+	    Py_DECREF(item);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+    }
+    return out;
+}
+
+static PyObject* quantity_array_shape_get(PyObject* self, void*) {
+    QuantityArrayObject* v = (QuantityArrayObject*) self;
+    SWITCH_QUANTITY_ARRAY_SUBTYPE_CALL(v, return do_quantity_array_shape_get, NULL);
     return NULL;
 }
 
