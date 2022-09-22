@@ -45,6 +45,7 @@ static PyObject* ply_str(PyObject* self);
 static Py_ssize_t ply_size(PyObject* self);
 static PyObject* ply_subscript(PyObject* self, PyObject* key);
 static int ply_contains(PyObject* self, PyObject* value);
+static PyObject* ply_items(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_add_colors(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_get_colors(PyObject* self, PyObject* args, PyObject* kwargs);
 
@@ -65,6 +66,7 @@ static PyObject* objwavefront_str(PyObject* self);
 static Py_ssize_t objwavefront_size(PyObject* self);
 static PyObject* objwavefront_subscript(PyObject* self, PyObject* key);
 static int objwavefront_contains(PyObject* self, PyObject* value);
+static PyObject* objwavefront_items(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_add_colors(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_get_colors(PyObject* self, PyObject* args, PyObject* kwargs);
 
@@ -106,6 +108,9 @@ static PyMethodDef ply_methods[] = {
     {"append", (PyCFunction) ply_append,
      METH_VARARGS,
      "Append another 3D structure."},
+    {"items", (PyCFunction) ply_items,
+     METH_NOARGS,
+     "Get the dict-like list of items in the structure."},
     {"get_colors", (PyCFunction) ply_get_colors,
      METH_VARARGS | METH_KEYWORDS,
      "Get colors associated with elements of a given type."},
@@ -200,16 +205,33 @@ static PyObject* ply_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
     if (kwargs && !PyArg_ValidateKeywordArguments(kwargs))
 	return NULL;
 
-    if (vertObject && PyDict_Check(vertObject) &&
-	!faceObject && !edgeObject && !kwargs) {
-	kwargs = vertObject;
-	vertObject = NULL;
+    const char* readFrom = 0;
+    if (vertObject && !faceObject && !edgeObject && !kwargs) {
+	if (PyDict_Check(vertObject)) {
+	    kwargs = vertObject;
+	    vertObject = NULL;
+	} else if (PyUnicode_Check(vertObject)) {
+	    readFrom = PyUnicode_AsUTF8(vertObject);
+	    vertObject = NULL;
+	} else if (PyBytes_Check(vertObject)) {
+	    readFrom = PyBytes_AsString(vertObject);
+	    vertObject = NULL;
+	}
     }
     
     PlyObject* v = (PlyObject*) type->tp_alloc(type, 0);
     if (v == NULL)
         return NULL;
     v->ply = new Ply();
+
+    if (readFrom) {
+	std::stringstream ss;
+	ss.str(std::string(readFrom));
+	if (!v->ply->read(ss)) {
+	    PyErr_SetString(geom_error, "Error reading from string");
+	    return NULL;
+	}
+    }
     
 #define ADD_ARRAY(x, name)						\
     if (x != NULL) {							\
@@ -753,6 +775,47 @@ static PyObject* ply_append(PyObject* self, PyObject* args, PyObject* kwargs) {
     Py_RETURN_NONE;
 }
 
+static PyObject* ply_items(PyObject* self, PyObject*, PyObject*) {
+    PlyObject* v = (PlyObject*) self;
+
+    PyObject* out = PyList_New(v->ply->elements.size());
+    if (out == NULL)
+	return NULL;
+    Py_ssize_t i = 0;
+    for (std::vector<std::string>::const_iterator it = v->ply->element_order.begin(); it != v->ply->element_order.end(); it++) {
+	std::map<std::string,PlyElementSet>::const_iterator eit = v->ply->elements.find(*it);
+	if (eit == v->ply->elements.end()) continue;
+	PyObject* iargs = Py_BuildValue("(s)", it->c_str());
+	PyObject* val = ply_get_elements(self, iargs, NULL);
+	Py_DECREF(iargs);
+	if (val == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	PyObject* key = PyUnicode_FromString(it->c_str());
+	if (key == NULL) {
+	    Py_DECREF(val);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	PyObject* item = PyTuple_Pack(2, key, val);
+	Py_DECREF(key);
+	Py_DECREF(val);
+	if (item == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	if (PyList_SetItem(out, i, item)) {
+	    Py_DECREF(item);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	i++;
+    }
+    
+    return out;
+}
+
 
 static PyObject* ply_bounds_get(PyObject* self, void*) {
     PlyObject* v = (PlyObject*) self;
@@ -1114,6 +1177,9 @@ static PyMethodDef objwavefront_methods[] = {
     {"append", (PyCFunction) objwavefront_append,
      METH_VARARGS,
      "Append another 3D structure."},
+    {"items", (PyCFunction) objwavefront_items,
+     METH_NOARGS,
+     "Get the dict-like list of items in the structure."},
     {"get_colors", (PyCFunction) objwavefront_get_colors,
      METH_VARARGS | METH_KEYWORDS,
      "Get colors associated with elements of a given type."},
@@ -1207,16 +1273,33 @@ static PyObject* objwavefront_new(PyTypeObject* type, PyObject* args, PyObject* 
     if (kwargs && !PyArg_ValidateKeywordArguments(kwargs))
 	return NULL;
 
-    if (vertObject && PyDict_Check(vertObject) &&
-	!faceObject && !edgeObject && !kwargs) {
-	kwargs = vertObject;
-	vertObject = NULL;
+    const char* readFrom = 0;
+    if (vertObject && !faceObject && !edgeObject && !kwargs) {
+	if (PyDict_Check(vertObject)) {
+	    kwargs = vertObject;
+	    vertObject = NULL;
+	} else if (PyUnicode_Check(vertObject)) {
+	    readFrom = PyUnicode_AsUTF8(vertObject);
+	    vertObject = NULL;
+	} else if (PyBytes_Check(vertObject)) {
+	    readFrom = PyBytes_AsString(vertObject);
+	    vertObject = NULL;
+	}
     }
     
     ObjWavefrontObject* v = (ObjWavefrontObject*) type->tp_alloc(type, 0);
     if (v == NULL)
         return NULL;
     v->obj = new ObjWavefront();
+    
+    if (readFrom) {
+	std::stringstream ss;
+	ss.str(std::string(readFrom));
+	if (!v->obj->read(ss)) {
+	    PyErr_SetString(geom_error, "Error reading from string");
+	    return NULL;
+	}
+    }
     
 #define ADD_ARRAY(x, name)						\
     if (x != NULL) {							\
@@ -1918,6 +2001,48 @@ static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject* k
 	return NULL;
     }
     Py_RETURN_NONE;
+}
+
+
+static PyObject* objwavefront_items(PyObject* self, PyObject*, PyObject*) {
+
+    ObjWavefrontObject* v = (ObjWavefrontObject*) self;
+
+    std::vector<std::string> unique = v->obj->element_types();
+    PyObject* out = PyList_New(unique.size());
+    if (out == NULL)
+	return NULL;
+    Py_ssize_t i = 0;
+    for (std::vector<std::string>::const_iterator it = unique.begin(); it != unique.end(); it++, i++) {
+	std::string longName = obj_code2long(*it);
+	PyObject* iargs = Py_BuildValue("(s)", it->c_str());
+	PyObject* val = objwavefront_get_elements(self, iargs, NULL);
+	Py_DECREF(iargs);
+	if (val == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	PyObject* key = PyUnicode_FromString(longName.c_str());
+	if (key == NULL) {
+	    Py_DECREF(val);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	PyObject* item = PyTuple_Pack(2, key, val);
+	Py_DECREF(key);
+	Py_DECREF(val);
+	if (item == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	if (PyList_SetItem(out, i, item)) {
+	    Py_DECREF(item);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+    }
+    
+    return out;
 }
 
 

@@ -227,6 +227,7 @@ def test_Ply(mesh_args_factory, factory_options):
     assert 'invalid' not in x
     assert x.as_dict() == result['dict']
     if 'vertex' in result['dict']:
+        assert x.items()
         assert 'vertex' in x
         np.testing.assert_array_equal(x.as_dict(as_array=True)['vertex'],
                                       result['arr']['vertex'])
@@ -286,6 +287,19 @@ def test_Ply_serialize(dumps, loads, mesh_args_factory, factory_options):
     value = geometry.Ply(*args, **kwargs)
     dumped = dumps(value)
     loaded = loads(dumped)
+    assert loaded.as_dict() == value.as_dict()
+    assert loaded == value
+
+
+@pytest.mark.parametrize('factory_options', [
+    ({'args': []}),
+    ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
+])
+def test_Ply_str(mesh_args_factory, factory_options):
+    args, kwargs, _ = mesh_args_factory(**factory_options)
+    value = geometry.Ply(*args, **kwargs)
+    dumped = str(value)
+    loaded = geometry.Ply(dumped)
     assert loaded.as_dict() == value.as_dict()
     assert loaded == value
 
@@ -361,6 +375,7 @@ def test_Obj(mesh_args_factory, factory_options):
     assert 'invalid' not in x
     assert x.as_dict() == result['dict']
     if 'vertex' in result['dict']:
+        assert x.items()
         assert 'vertex' in x
         np.testing.assert_array_equal(x.as_dict(as_array=True)['vertex'],
                                       result['arr']['vertex'])
