@@ -457,6 +457,7 @@ def test_QuantityArray_set_get_item():
     sub = np.ones(3)
     x1 = units.QuantityArray(arr, 'cm')
     xsub = units.QuantityArray(sub, 'cm')
+    print(x1[:, 0], xsub)
     assert np.array_equal(x1[:, 0], xsub)
     assert x1[0, 0] == units.Quantity(1, 'cm')
     x1[0, 0] = 3
@@ -468,8 +469,28 @@ def test_QuantityArray_set_get_item():
     assert x1[0, 0] == units.Quantity(3, 'cm')
 
 
-# TODO: Tests for trig functions
-# def test_QuantityArray_trig():
+@pytest.mark.parametrize('func,finv,x_in,x_out', (
+    (np.sin, np.arcsin, [-np.pi/2, 0, np.pi/2], [-1, 0, 1]),
+    (np.cos, np.arccos, [0, np.pi/2, np.pi], [1, 0, -1]),
+    (np.tan, np.arctan, [-np.pi/4, 0, np.pi/4], [-1, 0, 1]),
+    (np.sinh, np.arcsinh, [-np.pi/2, 0, np.pi/2],
+     [-2.30129890231, 0, 2.30129890231]),
+    (np.cosh, np.arccosh, [0, np.pi/2, np.pi],
+     [1, 2.50917847866, 11.5919532755]),
+    (np.tanh, np.arctanh, [-np.pi/4, 0, np.pi/4],
+     [-0.65579420263, 0, 0.65579420263])
+))
+def test_QuantityArray_trig(func, finv, x_in, x_out):
+    arr_rad = np.asarray(x_in)
+    arr_out = np.asarray(x_out)
+    x_rad = units.QuantityArray(x_in, "radians")
+    x_deg = units.QuantityArray(np.rad2deg(arr_rad), "degrees")
+    x_res = units.QuantityArray(x_out)
+    assert np.allclose(np.rad2deg(x_rad), x_deg)
+    assert np.allclose(np.deg2rad(x_deg), x_rad)
+    assert np.allclose(func(x_rad), arr_out)
+    assert np.allclose(func(x_deg), arr_out)
+    assert np.allclose(finv(x_res), x_rad)
 
 
 @pytest.mark.parametrize('v1,u1', (
