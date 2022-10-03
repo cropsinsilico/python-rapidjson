@@ -1891,6 +1891,8 @@ static int quantity_array_value_set(PyObject* self, PyObject* value, void*) {
     arr = (PyArrayObject*)PyArray_FromAny(value, NULL, 0, 0, req, NULL);
     if (arr == NULL) {
 	return -1;
+    } else if ((PyObject*)arr == value) {
+	Py_INCREF(arr);
     }
     old_flags = fa->flags;
     dims = PyArray_DIMS(arr);
