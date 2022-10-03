@@ -77,7 +77,11 @@ def test_Units_is_compatible(u1, u2, compat):
     (int(3), 'g')
 ])
 def test_Quantity(v, u):
-    str(units.Quantity(v, u))
+    x = units.Quantity(v, u)
+    print(str(x))
+    print(repr(x))
+    print('{:f}'.format(x))
+    print('%f' % (x))
 
 
 def test_Quantity_no_units():

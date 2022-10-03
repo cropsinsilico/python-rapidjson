@@ -47,6 +47,7 @@ static void quantity_dealloc(PyObject* self);
 static PyObject* quantity_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* quantity_str(PyObject* self);
 static PyObject* quantity_repr(PyObject* self);
+static PyObject* quantity__format__(PyObject* self, PyObject* args);
 static PyObject* quantity_units_get(PyObject* self, void* closure);
 static int quantity_units_set(PyObject* self, PyObject* value, void* closure);
 static PyObject* quantity_value_get(PyObject* type, void* closure);
@@ -62,6 +63,8 @@ static PyObject* quantity_multiply(PyObject *a, PyObject *b);
 static PyObject* quantity_divide(PyObject *a, PyObject *b);
 static PyObject* quantity_modulo(PyObject *a, PyObject *b);
 static PyObject* quantity_power(PyObject *base, PyObject *exp, PyObject *mod);
+static PyObject* quantity_long(PyObject* self);
+static PyObject* quantity_float(PyObject* self);
 static PyObject* quantity_floor_divide(PyObject *a, PyObject *b);
 static PyObject* quantity_add_inplace(PyObject *a, PyObject *b);
 static PyObject* quantity_subtract_inplace(PyObject *a, PyObject *b);
@@ -90,6 +93,7 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 static PyObject* quantity_array__array_finalize__(PyObject* self, PyObject* args);
 static PyObject* quantity_array__array_wrap__(PyObject* self, PyObject* args);
 static PyObject* quantity_array__array_function__(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* quantity_array__format__(PyObject* self, PyObject* args);
 static PyObject* quantity_array_subscript(PyObject* self, PyObject* key);
 static int quantity_array_ass_subscript(PyObject* self, PyObject* key, PyObject* val);
 
@@ -763,6 +767,8 @@ static PyMethodDef quantity_methods[] = {
      "Convert the quantity to another set of units."},
     {"is_equivalent", (PyCFunction) quantity_is_equivalent, METH_VARARGS,
      "Check if another Quantity is equivalent when convert to the same units/"},
+    {"__format__", (PyCFunction) quantity__format__, METH_VARARGS,
+     "Format the quantity according to format spec."},
     {NULL}  /* Sentinel */
 };
 
@@ -793,9 +799,9 @@ static PyNumberMethods quantity_number_methods = {
     0,                              /* nb_and */
     0,                              /* nb_xor */
     0,                              /* nb_or */
-    0,                              /* nb_int */
+    quantity_long,                  /* nb_int */
     0,                              /* nb_reserved */
-    0,                              /* nb_float */
+    quantity_float,                 /* nb_float */
     //
     quantity_add_inplace,           /* nb_inplace_add */
     quantity_subtract_inplace,      /* nb_inplace_subtract */
@@ -941,6 +947,25 @@ static PyObject* quantity_repr(PyObject* self) {
     std::basic_stringstream<char> ss;
     SWITCH_QUANTITY_SUBTYPE(v, , ->display(ss));
     return PyUnicode_FromString(ss.str().c_str());
+}
+
+
+static PyObject* quantity__format__(PyObject* self, PyObject* args) {
+    PyObject* base = quantity_value_get(self, NULL);
+    if (base == NULL) {
+	return NULL;
+    }
+    PyObject* base_out = PyObject_CallMethod(base, "__format__", "O", args);
+    Py_DECREF(base);
+    if (base_out == NULL) {
+	return NULL;
+    }
+    std::string units;
+    QuantityObject* v = (QuantityObject*) self;
+    SWITCH_QUANTITY_SUBTYPE(v, units = , ->units().str());
+    PyObject* out = PyUnicode_FromFormat("%U %s", base_out, units.c_str());
+    Py_DECREF(base_out);
+    return out;
 }
 
 
@@ -1375,6 +1400,26 @@ static PyObject* quantity_power_inplace(PyObject *base, PyObject *exp, PyObject 
 { return quantity_power_lvl1(base, exp, mod, true); }
 
 
+static PyObject* quantity_long(PyObject* self) {
+    PyObject* base = quantity_value_get(self, NULL);
+    if (base == NULL) {
+	return NULL;
+    }
+    PyObject* out = PyNumber_Long(base);
+    Py_DECREF(base);
+    return out;
+}
+static PyObject* quantity_float(PyObject* self) {
+    PyObject* base = quantity_value_get(self, NULL);
+    if (base == NULL) {
+	return NULL;
+    }
+    PyObject* out = PyNumber_Float(base);
+    Py_DECREF(base);
+    return out;
+}
+
+
 ///////////////////
 // QuantityArray //
 ///////////////////
@@ -1411,6 +1456,8 @@ static PyMethodDef quantity_array_methods[] = {
     {"__array_function__", (PyCFunction) quantity_array__array_function__,
      METH_VARARGS | METH_KEYWORDS,
      "numpy array function handling"},
+    {"__format__", (PyCFunction) quantity_array__format__, METH_VARARGS,
+     "Format the array according to format spec."},
     {NULL}  /* Sentinel */
 };
 
@@ -2657,6 +2704,22 @@ cleanup:
     Py_XDECREF(convert_units);
     Py_XDECREF(alt_args);
     return result;
+}
+
+static PyObject* quantity_array__format__(PyObject* self, PyObject* args) {
+    PyObject* view = quantity_array_value_get(self, NULL);
+    if (view == NULL) {
+	return NULL;
+    }
+    PyObject* base_out = PyObject_CallMethod(view, "__format__", "O", args);
+    Py_DECREF(view);
+    if (base_out == NULL) {
+	return NULL;
+    }
+    std::string units = ((QuantityArrayObject*)self)->units->units->str();
+    PyObject* out = PyUnicode_FromFormat("%U %s", base_out, units.c_str());
+    Py_DECREF(base_out);
+    return out;
 }
 
 static PyObject* quantity_array_subscript(PyObject* self, PyObject* key) {
