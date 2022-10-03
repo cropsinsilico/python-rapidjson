@@ -1820,36 +1820,17 @@ struct PyHandler {
 #undef SET_QUANTITY_
 	    } else {
 		RAPIDJSON_DEFAULT_ALLOCATOR allocator;
-		QuantityArrayObject* v = (QuantityArrayObject*) QuantityArray_Type.tp_alloc(&QuantityArray_Type, 0);
-		value = (PyObject*)v;
-		Value enc;
-		int typenum = x->GetSubTypeNumpyType(enc);
-#define SET_QUANTITY_(npT, T, subT)					\
-		case (npT): {						\
-		    v->subtype = subT;					\
-		    v->quantity = x->GetArrayQuantity<T>(allocator).copy_void(); \
-		    break;						\
+		PyObject* arr = x->GetPythonObjectRaw();
+		PyObject* units = PyUnicode_FromString(x->GetUnits().GetString());
+		if (arr != NULL && units != NULL) {
+		    PyObject* args = PyTuple_Pack(2, arr, units);
+		    if (args != NULL) {
+			value = PyObject_Call((PyObject*)&QuantityArray_Type, args, NULL);
+			Py_DECREF(args);
+		    }
 		}
-		switch (typenum) {
-		SET_QUANTITY_(NPY_INT8  , int8_t  , kInt8QuantitySubType)
-		SET_QUANTITY_(NPY_INT16 , int16_t , kInt16QuantitySubType)
-		SET_QUANTITY_(NPY_INT32 , int32_t , kInt32QuantitySubType)
-		SET_QUANTITY_(NPY_INT64 , int64_t , kInt64QuantitySubType)
-		SET_QUANTITY_(NPY_UINT8 , uint8_t , kUint8QuantitySubType)
-		SET_QUANTITY_(NPY_UINT16, uint16_t, kUint16QuantitySubType)
-		SET_QUANTITY_(NPY_UINT32, uint32_t, kUint32QuantitySubType)
-		SET_QUANTITY_(NPY_UINT64, uint64_t, kUint64QuantitySubType)
-		SET_QUANTITY_(NPY_FLOAT16, float, kFloatQuantitySubType)
-		SET_QUANTITY_(NPY_FLOAT32, float, kFloatQuantitySubType)
-		SET_QUANTITY_(NPY_FLOAT64, double, kDoubleQuantitySubType)
-		SET_QUANTITY_(NPY_COMPLEX64 , std::complex<float>, kComplexFloatQuantitySubType)
-		SET_QUANTITY_(NPY_COMPLEX128, std::complex<double>, kComplexDoubleQuantitySubType)
-		default:
-		    std::cerr << "Unhandled numpy type in array" << std::endl;
-		    Py_TYPE(value)->tp_free(value);
-		    value = NULL;
-		}
-#undef SET_QUANTITY_
+		Py_XDECREF(arr);
+		Py_XDECREF(units);
 	    }
 	} else if (x->IsPly()) {
 	    PlyObject* v = (PlyObject*) Ply_Type.tp_alloc(&Ply_Type, 0);
@@ -3271,8 +3252,11 @@ PythonAccept(
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	QuantityArrayObject* v = (QuantityArrayObject*) object;
 	Value* x = new Value();
-	bool ret = false;
-	SWITCH_QUANTITY_ARRAY_SUBTYPE_CALL(v, ret = x->SetNDArrayRaw, &allocator)
+	bool ret = x->SetPythonObjectRaw(object);
+	if (ret) {
+	    std::string unitsS = v->units->units->str();
+	    ret = x->SetUnits(unitsS.c_str(), unitsS.length());
+	}
 	if (ret)
 	    ret = x->Accept(*handler);
 	delete x;
@@ -6094,6 +6078,7 @@ PyMODINIT_FUNC
 PyInit_rapidjson()
 {
     import_array();
+    import_umath();
     PyObject* out = PyModuleDef_Init(&module);
     return out;
 }
