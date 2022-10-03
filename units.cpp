@@ -2072,7 +2072,7 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
     PyUFuncObject* ufunc_object;
     PyObject *result_units = NULL, *convert_units = NULL;
     std::string ufunc_name;
-    int is_call, res;
+    int is_call, res, count = 0;
     Py_ssize_t Nargs, kw_pos;
     bool inplace = false;
     
@@ -2139,7 +2139,7 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 	    goto cleanup;
 	}
     }
-    // std::cerr << "__array_ufunc__: " << ufunc_name << ", " << Nargs << ", inplace = " << inplace << std::endl;
+    std::cerr << "__array_ufunc__: " << ufunc_name << ", " << Nargs << ", inplace = " << inplace << std::endl;
     if (Nargs == 1) { // unary operators
 	if (ufunc_name == "isfinite" ||
 	    ufunc_name == "isinf" ||
@@ -2452,12 +2452,14 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 	goto cleanup;
     }
     if (result == NULL) {
+	std::cerr << "__array_ufunc__[" << ufunc_name << "]: " << count++ << std::endl;
 	if (modified_args == NULL) {
 	    modified_args = quantity_array_numpy_tuple(normal_args, false, convert_units);
 	    if (modified_args == NULL) {
 		goto cleanup;
 	    }
 	}
+	std::cerr << "__array_ufunc__[" << ufunc_name << "]: " << count++ << std::endl;
 	if (modified_kwargs == NULL) {
 	    if (modified_out == NULL) {
 		Py_INCREF(kwargs);
@@ -2485,14 +2487,18 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 		Py_DECREF(tmp);
 	    }
 	}
+	std::cerr << "__array_ufunc__[" << ufunc_name << "]: " << count++ << std::endl;
 	ufunc_method = PyObject_GetAttr(ufunc, method_name);
 	if (ufunc_method == NULL) {
 	    goto cleanup;
 	}
+	std::cerr << "__array_ufunc__[" << ufunc_name << "]: " << count++ << std::endl;
 	result = PyObject_Call(ufunc_method, modified_args, modified_kwargs);
 	Py_DECREF(ufunc_method);
+	std::cerr << "__array_ufunc__[" << ufunc_name << "]: " << count++ << std::endl;
     }
     if (result != NULL && result_units != NULL) {
+	std::cerr << "__array_ufunc__[" << ufunc_name << "] result units: " << count++ << std::endl;
 	if (result_type == NULL) {
 	    result_type = (PyObject*)&QuantityArray_Type;
 	    Py_INCREF(result_type);
@@ -2503,10 +2509,13 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 	    result = NULL;
 	    goto cleanup;
 	}
+	std::cerr << "__array_ufunc__[" << ufunc_name << "] result units: " << count++ << std::endl;
 	result = PyObject_Call(result_type, tmp, NULL);
+	std::cerr << "__array_ufunc__[" << ufunc_name << "] result units: " << count++ << std::endl;
 	Py_DECREF(tmp);
     }
 cleanup:
+    std::cerr << "__array_ufunc__[" << ufunc_name << "]: cleanup" << std::endl;
     Py_DECREF(normal_args);
     Py_XDECREF(result_type);
     Py_XDECREF(result_units);
