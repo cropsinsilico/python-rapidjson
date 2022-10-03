@@ -308,6 +308,8 @@ def test_QuantityArray_add(v1, u1, v2, u2, vExp, uExp):
     x2 = units.QuantityArray(v2 * arr, u2)
     exp = units.QuantityArray(vExp * arr, uExp)
     xAlt = units.QuantityArray(v2 * arrAlt, u2)
+    res = x1 + x2
+    assert np.array_equal(res, exp)
     assert np.array_equal((x1 + x2), exp)
     assert (x2 + x1).is_equivalent(exp)
     with pytest.raises(units.UnitsError):
@@ -457,7 +459,6 @@ def test_QuantityArray_set_get_item():
     sub = np.ones(3)
     x1 = units.QuantityArray(arr, 'cm')
     xsub = units.QuantityArray(sub, 'cm')
-    print(x1[:, 0], xsub)
     assert np.array_equal(x1[:, 0], xsub)
     assert x1[0, 0] == units.Quantity(1, 'cm')
     x1[0, 0] = 3

@@ -1478,7 +1478,7 @@ static PyTypeObject QuantityArray_Type = {
 // QuantityArray Utilities //
 /////////////////////////////
 
-static int quantity_array_pull_factor(PyObject* x) {
+static PyObject* quantity_array_pull_factor(PyObject* x) {
     double factor = ((QuantityArrayObject*)x)->units->units->pull_factor();
     if (!internal::values_eq(factor, 1)) {
 	PyObject* py_factor;
@@ -1487,21 +1487,15 @@ static int quantity_array_pull_factor(PyObject* x) {
 	else
 	    py_factor = PyFloat_FromDouble(factor);
 	if (py_factor == NULL) {
-	    return -1;
+	    Py_DECREF(x);
+	    return NULL;
 	}
-	PyObject* tmp = PyNumber_InPlaceMultiply(x, py_factor);
+	PyObject* out = PyNumber_InPlaceMultiply(x, py_factor);
 	Py_DECREF(py_factor);
-	if (tmp == NULL) {
-	    return -1;
-	}
-	// if (tmp != x) {
-	//     Py_DECREF(tmp);
-	//     PyErr_SetString(units_error, "Failed to multiply in place.");
-	//     return -1;
-	// }
-	Py_DECREF(tmp);
+	// Py_DECREF(x);
+	return out;
     }
-    return 1;
+    return x;
 }
 
 static QuantityArrayObject* quantity_array_coerce(PyObject* x) {
@@ -1622,80 +1616,80 @@ static void quantity_array_dealloc(PyObject* self)
 static PyObject* quantity_array_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 {
     // TODO: Allow dtype to be passed?
-    PyObject* valueObject;
-    PyObject* unitsObject = NULL;
+    PyObject *valueObject = NULL, *unitsObject = NULL, *units = NULL,
+	*arr = NULL, *out = NULL;
     static char const* kwlist[] = {
 	"value",
 	"units",
 	NULL
     };
+    bool nullUnits = false, dont_pull = false;
+    PyArrayObject* arr_cast = NULL;
+    PyArray_Descr *dtype = NULL;
+    int ret = 0;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O:QuantityArray",
 				     (char**) kwlist,
 				     &valueObject, &unitsObject))
 	return NULL;
 
-    bool nullUnits = (unitsObject == NULL);
-    PyObject* units = get_empty_units(unitsObject);
+    nullUnits = (unitsObject == NULL);
+    units = get_empty_units(unitsObject);
     if (units == NULL) {
 	return NULL;
     }
-    // double factor = ((UnitsObject*)units)->units->pull_factor();
-    
-    bool cleanupValue = false;
+
     if ((!nullUnits) &&
 	PyObject_IsInstance(valueObject, (PyObject*)&QuantityArray_Type)) {
 	valueObject = quantity_array_get_converted_value(valueObject, units);
 	if (valueObject == NULL) {
-	    Py_DECREF(units);
-	    return NULL;
+	    goto fail;
 	}
-	cleanupValue = true;
-    }
-    PyObject* arr = PyArray_FromAny(valueObject, NULL, 0, 0, NPY_ARRAY_ENSURECOPY, NULL);
-    if (cleanupValue && arr != valueObject)
-	Py_DECREF(valueObject);
-    else if (!cleanupValue && arr == valueObject)
+	dont_pull = true;
+    } else {
 	Py_INCREF(valueObject);
-    if (arr == NULL) {
-	Py_DECREF(units);
-	return NULL;
     }
-    PyArrayObject* arr_cast = (PyArrayObject*)arr;
-    PyArray_Descr *dtype = PyArray_DESCR(arr_cast);
-    Py_INCREF(dtype);
-    PyObject* out = PyArray_NewFromDescr(
+    
+    arr = PyArray_FromAny(valueObject, NULL, 0, 0, 0, NULL);
+    if (arr != valueObject)
+	Py_DECREF(valueObject);
+    if (arr == NULL) {
+	goto fail;
+    }
+    arr_cast = (PyArrayObject*)arr;
+    dtype = PyArray_DescrNew(PyArray_DESCR(arr_cast));
+    if (dtype == NULL) {
+	goto fail;
+    }
+    out = PyArray_NewFromDescr(
 	&QuantityArray_Type, dtype,
 	PyArray_NDIM(arr_cast),
 	PyArray_DIMS(arr_cast),
 	PyArray_STRIDES(arr_cast),
 	NULL,
-	PyArray_FLAGS(arr_cast),
-	arr);
-    if (out != arr) {
-	Py_XDECREF(arr);
-    }
+	0, 
+	NULL);
     if (out == NULL) {
-	Py_DECREF(units);
-	return NULL;
+	Py_DECREF(dtype);
+	goto fail;
     }
-    if (PyArray_CopyInto((PyArrayObject*)out, (PyArrayObject*)arr) < 0) {
-	Py_DECREF(units);
-	return NULL;
-    }
-    QuantityArrayObject* v = (QuantityArrayObject*)out;
-
-    UnitsObject* tmp = v->units;
-    if (tmp) {
-	Py_DECREF(tmp);
-    }
-    v->units = (UnitsObject*)units;
-    if (!cleanupValue && (quantity_array_pull_factor(out) < 0)) {
-	Py_DECREF(out);
-	return NULL;
+    ret = PyArray_CopyInto((PyArrayObject*)out, (PyArrayObject*)arr);
+    if (ret < 0) {
+	goto fail;
     }
 
+    ((QuantityArrayObject*)out)->units = (UnitsObject*)units;
+    if (!dont_pull) {
+	out = quantity_array_pull_factor(out);
+    }
+
+    Py_XDECREF(arr);
     return out;
+fail:
+    Py_XDECREF(units);
+    Py_XDECREF(arr);
+    Py_XDECREF(out);
+    return NULL;
 }
 
 
@@ -2071,7 +2065,8 @@ static PyObject* quantity_array_to(PyObject* self, PyObject* args) {
 static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject *ufunc, *method_name, *normal_args, *ufunc_method, *tmp, *tmp2,
 	*i0, *i1, *i0_units, *i1_units, *out = NULL, *kw_key, *kw_val;
-    PyObject *result = NULL, *modified_args = NULL, *modified_kwargs = NULL, *modified_out = NULL;
+    PyObject *result = NULL, *result_type = NULL,
+	*modified_args = NULL, *modified_kwargs = NULL, *modified_out = NULL;
     PyUFuncObject* ufunc_object;
     PyObject *result_units = NULL, *convert_units = NULL;
     std::string ufunc_name;
@@ -2109,10 +2104,20 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 	goto cleanup;
     }
     out = PyDict_GetItemString(kwargs, "out");
-    if (out != NULL) {
-	if (PyTuple_Check(out)) {
-	    modified_out = quantity_array_numpy_tuple(out, true);
-	    if (modified_out == NULL) {
+    if (out != NULL && PyTuple_Check(out)) {
+	modified_out = quantity_array_numpy_tuple(out, true);
+	if (modified_out == NULL) {
+	    goto cleanup;
+	}
+	if (PyTuple_Size(out) == 1) {
+	    i0 = PyTuple_GET_ITEM(out, 0);
+	    if (i0 == NULL) {
+		goto cleanup;
+	    }
+	    result_type = PyObject_Type(i0);
+	    Py_DECREF(i0);
+	    i0 = NULL;
+	    if (result_type == NULL) {
 		goto cleanup;
 	    }
 	}
@@ -2124,7 +2129,7 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 	    goto cleanup;
 	}
 	if (out != NULL) {
-	    inplace = (i0 == out);
+	    inplace = true;
 	}
 	if (inplace && !PyObject_IsInstance(i0, (PyObject*)&QuantityArray_Type)) {
 	    PyErr_Format(units_error,
@@ -2199,6 +2204,10 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 		convert_units = (PyObject*)units_coerce(tmp);
 		Py_DECREF(tmp);
 		if (convert_units == NULL) {
+		    goto cleanup;
+		}
+		result_units = get_empty_units();
+		if (result_units == NULL) {
 		    goto cleanup;
 		}
 	    }
@@ -2320,18 +2329,23 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 		    goto cleanup;
 		}
 	    }
-	} else if (ufunc_name == "add" ||
-		   ufunc_name == "subtract" ||
-		   ufunc_name == "maximum" ||
-		   ufunc_name == "minimum" ||
-		   ufunc_name == "fmax" ||
-		   ufunc_name == "fmin" ||
-		   ufunc_name == "greater" ||
+	} else if (ufunc_name == "greater" ||
 		   ufunc_name == "greater_equal" ||
 		   ufunc_name == "less" ||
 		   ufunc_name == "less_equal" ||
 		   ufunc_name == "hypot") {
 	    // Require components have the same units
+	    convert_units = _get_units(i0);
+	    if (convert_units == NULL) {
+		goto cleanup;
+	    }
+	} else if (ufunc_name == "add" ||
+		   ufunc_name == "subtract" ||
+		   ufunc_name == "maximum" ||
+		   ufunc_name == "minimum" ||
+		   ufunc_name == "fmax" ||
+		   ufunc_name == "fmin") {
+	    // Require components and result have the same units
 	    result_units = _get_units(i0);
 	    if (result_units == NULL) {
 		goto cleanup;
@@ -2477,18 +2491,22 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 	Py_DECREF(ufunc_method);
     }
     if (result != NULL && result_units != NULL) {
+	if (result_type == NULL) {
+	    result_type = (PyObject*)&QuantityArray_Type;
+	    Py_INCREF(result_type);
+	}
 	tmp = PyTuple_Pack(2, result, result_units);
 	Py_DECREF(result);
 	if (tmp == NULL) {
 	    result = NULL;
 	    goto cleanup;
 	}
-	// TODO: Determine out type to allow subclassing
-	result = PyObject_Call((PyObject*)&QuantityArray_Type, tmp, NULL);
+	result = PyObject_Call(result_type, tmp, NULL);
 	Py_DECREF(tmp);
     }
 cleanup:
     Py_DECREF(normal_args);
+    Py_XDECREF(result_type);
     Py_XDECREF(result_units);
     Py_XDECREF(convert_units);
     Py_XDECREF(modified_out);
