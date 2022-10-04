@@ -85,15 +85,19 @@ Python's lists, tuples and iterators get serialized as JSON arrays:
     >>> dumps(names_t) == dumps(names_l) == dumps(names_i) == dumps(names_g())
     True
 
-Values can also be :class:`bytes` or :class:`bytearray` instances, which are assumed to
-contain proper ``UTF-8``\ -encoded strings:
+Values can also be :class:`bytes` or :class:`bytearray` instances, which are encoded as raw bytes with a header unless bytes_mode is set to :data:`BM_UTF8`:
 
 .. doctest::
 
     >>> clef = "\N{MUSICAL SYMBOL G CLEF}"
     >>> bytes_utf8 = clef.encode('utf-8')
     >>> bytearray = bytearray(bytes_utf8)
-    >>> dumps(clef) == dumps(bytes_utf8) == dumps(bytearray) == '"\\uD834\\uDD1E"'
+    >>> dumps(bytes_utf8) == dumps(bytearray)
+    True
+    >>> dumps(clef) == dumps(bytes_utf8)
+    False
+    >>> from rapidjson import BM_UTF8
+    >>> dumps(clef) == dumps(bytes_utf8, bytes_mode=BM_UTF8) == dumps(bytearray, bytes_mode=BM_UTF8) == '"\\uD834\\uDD1E"'
     True
 
 ``python-rapidjson`` can optionally handle also a few other commonly used data types:

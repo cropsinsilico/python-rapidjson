@@ -3290,8 +3290,8 @@ PythonAccept(
 		 PyLong_Check(object) ||
 		 PyFloat_Check(object) ||
 		 PyUnicode_Check(object) ||
-		 (bytesMode == BM_UTF8 && (PyBytes_Check(object) ||
-					   PyByteArray_Check(object))) ||
+		 ((bytesMode == BM_UTF8 || bytesMode == BM_NONE) &&
+		  (PyBytes_Check(object) || PyByteArray_Check(object))) ||
 		 PyList_Check(object) ||
 		 PyTuple_Check(object) ||
 		 PyDict_Check(object) ||

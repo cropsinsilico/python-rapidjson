@@ -13,7 +13,7 @@
 
 .. testsetup::
 
-   from rapidjson import (dumps, loads, BM_NONE, BM_UTF8, DM_NONE, DM_ISO8601,
+   from rapidjson import (dumps, loads, BM_NONE, BM_UTF8, BM_SCALAR, DM_NONE, DM_ISO8601,
                           DM_UNIX_TIME, DM_ONLY_SECONDS, DM_IGNORE_TZ, DM_NAIVE_IS_UTC,
                           DM_SHIFT_TO_UTC, IM_ANY_ITERABLE, IM_ONLY_LISTS, MM_ANY_MAPPING,
                           MM_ONLY_DICTS, MM_COERCE_KEYS_TO_STRINGS, MM_SORT_KEYS,
@@ -23,7 +23,7 @@
 
 .. function:: dumps(obj, *, skipkeys=False, ensure_ascii=True, write_mode=WM_COMPACT, \
                     indent=4, default=None, sort_keys=False, number_mode=None, \
-                    datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8, \
+                    datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR, \
                     iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING, \
                     allow_nan=True)
 
@@ -455,8 +455,8 @@
    .. _dumps-bytes-mode:
    .. rubric:: `bytes_mode`
 
-   By default all :class:`bytes` instances are assumed to be ``UTF-8`` encoded strings,
-   and acted on accordingly:
+
+   By default all :class:`bytes` instances are serialized as raw memory (this differs from the way the original rapidjson extension operates):
 
    .. doctest::
 
@@ -464,6 +464,17 @@
       >>> bytes_string = b'cio\xc3\xa8'
       >>> unicode_string = 'cioè'
       >>> dumps([ascii_string, bytes_string, unicode_string])
+      '["ciao","-YGG-eyJ0eXBlIjoic2NhbGFyIiwic3VidHlwZSI6InN0cmluZyIsInByZWNpc2lvbiI6NX0=-YGG-Y2lvw6g=-YGG-","cio\\u00E8"]'
+	       
+   If you prefer that :class:`bytes` instances are assumed to be ``UTF-8`` encoded strings, you can pass the :data:`BM_UTF8` mode:
+
+   .. doctest::
+
+      >>> ascii_string = 'ciao'
+      >>> bytes_string = b'cio\xc3\xa8'
+      >>> unicode_string = 'cioè'
+      >>> dumps([ascii_string, bytes_string, unicode_string],
+      ...       bytes_mode=BM_UTF8)
       '["ciao","cio\\u00E8","cio\\u00E8"]'
 
    Sometime you may prefer a different approach, explicitly disabling that behavior using
