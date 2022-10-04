@@ -21,7 +21,7 @@ import rapidjson
 def test_unicode(u, dumps, loads):
     s = u.encode('utf-8')
     ju = dumps(u)
-    js = dumps(s)
+    js = dumps(s, bytes_mode=rapidjson.BM_UTF8)
     assert ju == js
     assert ju.lower() == json.dumps(u).lower()
     assert dumps(u, ensure_ascii=False) == json.dumps(u, ensure_ascii=False)
@@ -60,4 +60,4 @@ def test_unicode_decode_error(j, loads):
 def test_non_utf8_bytes(dumps):
     value = b'\xff\xf0'
     with pytest.raises(UnicodeDecodeError, match="'utf-8' codec can't decode byte"):
-        dumps(value)
+        dumps(value, bytes_mode=rapidjson.BM_UTF8)

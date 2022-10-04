@@ -178,7 +178,8 @@ enum NumberMode {
 enum BytesMode {
     BM_NONE = 0,
     BM_UTF8 = 1<<0,             // try to convert to UTF-8
-    BM_MAX = 1<<1
+    BM_SCALAR = 1<<1,           // Encode as a yggdrasil scalar
+    BM_MAX = 1<<2
 };
 
 
@@ -3289,8 +3290,8 @@ PythonAccept(
 		 PyLong_Check(object) ||
 		 PyFloat_Check(object) ||
 		 PyUnicode_Check(object) ||
-		 PyBytes_Check(object) ||
-		 PyByteArray_Check(object) ||
+		 (bytesMode == BM_UTF8 && (PyBytes_Check(object) ||
+					   PyByteArray_Check(object))) ||
 		 PyList_Check(object) ||
 		 PyTuple_Check(object) ||
 		 PyDict_Check(object) ||
@@ -4089,7 +4090,7 @@ typedef struct {
 PyDoc_STRVAR(dumps_docstring,
              "dumps(obj, *, skipkeys=False, ensure_ascii=True, write_mode=WM_COMPACT,"
              " indent=4, default=None, sort_keys=False, number_mode=None,"
-             " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+             " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
              " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
              " allow_nan=True)\n"
              "\n"
@@ -4112,7 +4113,7 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
     PyObject* uuidModeObj = NULL;
     unsigned uuidMode = UM_NONE;
     PyObject* bytesModeObj = NULL;
-    unsigned bytesMode = BM_UTF8;
+    unsigned bytesMode = BM_SCALAR;
     PyObject* writeModeObj = NULL;
     unsigned writeMode = WM_COMPACT;
     PyObject* iterableModeObj = NULL;
@@ -4211,7 +4212,7 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
 PyDoc_STRVAR(dump_docstring,
              "dump(obj, stream, *, skipkeys=False, ensure_ascii=True,"
              " write_mode=WM_COMPACT, indent=4, default=None, sort_keys=False,"
-             " number_mode=None, datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+             " number_mode=None, datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
              " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
              " chunk_size=65536, allow_nan=True)\n"
              "\n"
@@ -4235,7 +4236,7 @@ dump(PyObject* self, PyObject* args, PyObject* kwargs)
     PyObject* uuidModeObj = NULL;
     unsigned uuidMode = UM_NONE;
     PyObject* bytesModeObj = NULL;
-    unsigned bytesMode = BM_UTF8;
+    unsigned bytesMode = BM_SCALAR;
     PyObject* writeModeObj = NULL;
     unsigned writeMode = WM_COMPACT;
     PyObject* iterableModeObj = NULL;
@@ -4622,7 +4623,7 @@ encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
     PyObject* uuidModeObj = NULL;
     unsigned uuidMode = UM_NONE;
     PyObject* bytesModeObj = NULL;
-    unsigned bytesMode = BM_UTF8;
+    unsigned bytesMode = BM_SCALAR;
     PyObject* writeModeObj = NULL;
     unsigned writeMode = WM_COMPACT;
     PyObject* iterableModeObj = NULL;
@@ -4767,7 +4768,7 @@ typedef struct {
 
 PyDoc_STRVAR(validator_doc,
              "Validator(json_schema, object_hook=None, number_mode=None,"
-	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
 	     " allow_nan=True)\n"
              "\n"
@@ -4887,7 +4888,7 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
     PyObject* uuidModeObj = NULL;
     unsigned uuidMode = UM_NONE;
     PyObject* bytesModeObj = NULL;
-    unsigned bytesMode = BM_UTF8;
+    unsigned bytesMode = BM_SCALAR;
     PyObject* iterableModeObj = NULL;
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
@@ -4992,7 +4993,7 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
     PyObject* uuidModeObj = NULL;
     unsigned uuidMode = UM_NONE;
     PyObject* bytesModeObj = NULL;
-    unsigned bytesMode = BM_UTF8;
+    unsigned bytesMode = BM_SCALAR;
     PyObject* iterableModeObj = NULL;
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
@@ -5107,7 +5108,7 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
 
 PyDoc_STRVAR(validate_docstring,
              "validate(obj, schema, object_hook=None, number_mode=None,"
-	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
 	     " allow_nan=True)\n"
              "\n"
@@ -5160,7 +5161,7 @@ validate(PyObject* self, PyObject* args, PyObject* kwargs)
 PyDoc_STRVAR(encode_schema_docstring,
              "encode_schema(obj, minimal=False, object_hook=None,"
 	     " number_mode=None, datetime_mode=None, uuid_mode=None,"
-	     " bytes_mode=BM_UTF8, iterable_mode=IM_ANY_ITERABLE,"
+	     " bytes_mode=BM_SCALAR, iterable_mode=IM_ANY_ITERABLE,"
 	     " mapping_mode=MM_ANY_MAPPING, allow_nan=True)\n"
              "\n"
 	     "Encode a schema for a Python object.");
@@ -5179,7 +5180,7 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
     PyObject* uuidModeObj = NULL;
     unsigned uuidMode = UM_NONE;
     PyObject* bytesModeObj = NULL;
-    unsigned bytesMode = BM_UTF8;
+    unsigned bytesMode = BM_SCALAR;
     PyObject* iterableModeObj = NULL;
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
@@ -5275,7 +5276,7 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
 
 PyDoc_STRVAR(get_metaschema_docstring,
              "get_metaschema(object_hook=None, number_mode=None,"
-	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
 	     " allow_nan=True)\n"
              "\n"
@@ -5378,7 +5379,7 @@ typedef struct {
 
 PyDoc_STRVAR(normalizer_doc,
              "Normalizer(json_schema, object_hook=None, number_mode=None,"
-	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
 	     " allow_nan=True)\n"
              "\n"
@@ -5514,7 +5515,7 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
     PyObject* uuidModeObj = NULL;
     unsigned uuidMode = UM_NONE;
     PyObject* bytesModeObj = NULL;
-    unsigned bytesMode = BM_UTF8;
+    unsigned bytesMode = BM_SCALAR;
     PyObject* iterableModeObj = NULL;
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
@@ -5649,7 +5650,7 @@ static PyObject* normalizer_check_schema(PyObject*, PyObject* args, PyObject* kw
 
 PyDoc_STRVAR(normalize_docstring,
              "normalize(obj, schema, object_hook=None, number_mode=None,"
-	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_UTF8,"
+	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
 	     " allow_nan=True)\n"
              "\n"
@@ -5924,6 +5925,7 @@ module_exec(PyObject* m)
 
         || PyModule_AddIntConstant(m, "BM_NONE", BM_NONE)
         || PyModule_AddIntConstant(m, "BM_UTF8", BM_UTF8)
+        || PyModule_AddIntConstant(m, "BM_SCALAR", BM_SCALAR)
 
         || PyModule_AddIntConstant(m, "WM_COMPACT", WM_COMPACT)
         || PyModule_AddIntConstant(m, "WM_PRETTY", WM_PRETTY)

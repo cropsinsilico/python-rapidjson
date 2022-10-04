@@ -40,12 +40,15 @@ def test_tuple(dumps):
     assert dumps(obj) == dumps(tuple(obj))
 
 
-def test_bytes_value(dumps):
+def test_bytes_value(dumps, loads):
     value = b'cruel\x00world'
+    dumped = dumps(value, bytes_mode=rj.BM_UTF8)
+    assert dumped == r'"cruel\u0000world"'
+    dumped = dumps(bytearray(value), bytes_mode=rj.BM_UTF8)
+    assert dumped == r'"cruel\u0000world"'
     dumped = dumps(value)
-    assert dumped == r'"cruel\u0000world"'
-    dumped = dumps(bytearray(value))
-    assert dumped == r'"cruel\u0000world"'
+    loaded = loads(dumped)
+    assert loaded == value
 
 
 def test_larger_structure(dumps, loads):
