@@ -26,12 +26,13 @@ def test_scalars(dumps, loads, np_type):
 
 
 @pytest.mark.parametrize('type_str,values', [
-    ('S1', [b'1']),
-    ('U5', ['hello']),
+    ('S1', [b'1', b'2']),
+    ('U5', ['hello', 'world']),
 ])
 def test_strings(dumps, loads, type_str, values):
     value = np.array(values, dtype=type_str)
-    import gc; gc.collect()
+    import gc
+    gc.collect()
     print('HERE1')
     dumped = dumps(value)
     gc.collect()
@@ -41,7 +42,7 @@ def test_strings(dumps, loads, type_str, values):
     gc.collect()
     print('HERE3')
     print(loaded)
-    assert loaded == value
+    assert np.array_equal(loaded, value)
 
 
 @pytest.mark.parametrize(

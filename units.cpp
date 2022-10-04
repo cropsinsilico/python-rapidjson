@@ -359,6 +359,8 @@ static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
             return NULL;
     } else if (PyObject_IsInstance(exprObject, (PyObject*)&Units_Type)) {
 	other = (UnitsObject*)exprObject;
+    } else if (exprObject == Py_None) {
+	exprStr = "";
     } else {
         PyErr_SetString(PyExc_TypeError, "Expected string or UTF-8 encoded bytes");
         return NULL;

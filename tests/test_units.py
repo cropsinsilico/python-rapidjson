@@ -46,7 +46,7 @@ def test_Units_error(u):
 
 
 @pytest.mark.parametrize('u', [
-    "", "n/a"
+    "", "n/a", None,
 ])
 def test_Units_empty(u):
     x = units.Units(u)
