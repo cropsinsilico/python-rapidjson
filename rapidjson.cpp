@@ -1814,7 +1814,7 @@ struct PyHandler {
 		SET_QUANTITY_(NPY_COMPLEX64 , std::complex<float>, kComplexFloatQuantitySubType)
 		SET_QUANTITY_(NPY_COMPLEX128, std::complex<double>, kComplexDoubleQuantitySubType)
 		default:
-		    std::cerr << "Unhandled numpy type" << std::endl;
+		    std::cerr << "Unhandled numpy type: " << typenum << std::endl;
 		    Py_TYPE(value)->tp_free(value);
 		    value = NULL;
 		}

@@ -40,6 +40,12 @@ def test_invalid_json():
     ({"type": "function"},
      f"{__file__}:filter_func_ex",
      filter_func_ex),
+    ({"type": "array", "items": [{"type": "string"}]},
+     [b"hello"], ["hello"]),
+    ({"type": "array", "items": [{"type": "scalar",
+                                  "subtype": "string",
+                                  "precision": 5}]},
+     ["hello"], [b"hello"]),
 ))
 def test_normalize(schema, json, normalized):
     normalizer = rj.Normalizer(schema)
