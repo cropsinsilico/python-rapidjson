@@ -3270,7 +3270,7 @@ PythonAccept(
 	    ret = x->Accept(*handler);
 	delete x;
 	if (!ret && !PyErr_Occurred())
-	    PyErr_Format(PyExc_TypeError, "%R is not JSON serializable", object);
+	    PyErr_Format(PyExc_TypeError, "%R is not JSON serializable even with yggdrasil extension", object);
 	return ret;
     } else {
 	if (!PyErr_Occurred())
