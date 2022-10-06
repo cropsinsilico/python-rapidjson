@@ -126,7 +126,7 @@ static int _compare_units_tuple(PyObject* x, bool allowCompat = false,
 				PyObject** out_units=NULL);
 static PyObject* _get_array(PyObject* item);
 static int _copy_array_into(PyObject* dst, PyObject* src, bool copyFlags=false);
-PyObject* _copy_array(PyObject* item, PyObject* type, bool copyFlags=false, bool returnScalar=false);
+PyObject* _copy_array(PyObject* item, PyObject* type, bool copyFlags=false, bool returnScalar=false, PyArray_Descr *dtype = NULL);
 
 #define SET_ERROR(errno, msg, ret)			\
     {							\
@@ -564,7 +564,7 @@ typedef struct {
 
 
 PyDoc_STRVAR(quantity_array_doc,
-             "QuantityArray(value, units)\n"
+             "QuantityArray(value, units, dtype=None)\n"
              "\n"
              "Create and return a new QuantityArray instance from the given"
              " `value` and `units` string or Units instance.");
@@ -663,7 +663,7 @@ typedef struct {
 
 
 PyDoc_STRVAR(quantity_doc,
-             "Quantity(value, units)\n"
+             "Quantity(value, units, dtype=None)\n"
              "\n"
              "Create and return a new Quantity instance from the given"
              " `value` and `units` string or Units instance.");
@@ -841,19 +841,21 @@ static void quantity_array_dealloc(PyObject* self)
 
 static PyObject* quantity_array_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 {
-    // TODO: Allow dtype to be passed?
-    PyObject *valueObject = NULL, *unitsObject = NULL, *units = NULL,
-	*out = NULL;
+    PyObject *valueObject = NULL, *unitsObject = NULL, *dtypeObject = NULL,
+	*units = NULL, *out = NULL;
     static char const* kwlist[] = {
 	"value",
 	"units",
+	"dtype",
 	NULL
     };
     bool nullUnits = false, dont_pull = false;
+    PyArray_Descr* dtype = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O:QuantityArray",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO:QuantityArray",
 				     (char**) kwlist,
-				     &valueObject, &unitsObject))
+				     &valueObject, &unitsObject,
+				     &dtypeObject))
 	return NULL;
 
     nullUnits = (unitsObject == NULL);
@@ -872,8 +874,19 @@ static PyObject* quantity_array_new(PyTypeObject* type, PyObject* args, PyObject
     } else {
 	Py_INCREF(valueObject);
     }
+    if (dtypeObject != NULL) {
+	if (PyObject_IsInstance(dtypeObject, (PyObject*)&PyArrayDescr_Type)) {
+	    Py_INCREF(dtypeObject);
+	    dtype = (PyArray_Descr*)dtypeObject;
+	} else {
+	    dtype = (PyArray_Descr*)PyObject_CallFunctionObjArgs((PyObject*)&PyArrayDescr_Type, dtypeObject, NULL);
+	}
+	if (dtype == NULL) {
+	    goto fail;
+	}
+    }
 
-    out = _copy_array(valueObject, (PyObject*)type);
+    out = _copy_array(valueObject, (PyObject*)type, false, false, dtype);
     Py_DECREF(valueObject);
     if (out == NULL) {
 	goto fail;
@@ -2080,8 +2093,11 @@ static int _compare_units_tuple(PyObject* x, bool allowCompat,
 static PyObject* _get_array(PyObject* item) {
     PyObject *arr = NULL, *scalar = NULL;
     PyArray_Descr *dtype = NULL;
-    long long i = 0;
+    void* scalar_data = NULL;
+    long il = 0;
+    long long ill = 0;
     double d = 0;
+    int overflow = 0;
     int req = NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ENSUREARRAY | NPY_ARRAY_ALIGNED;
     int isScalar = (int)(PyArray_CheckScalar(item) && !PyObject_IsInstance(item, (PyObject*)&PyArray_Type));
     if (isScalar || PyFloat_Check(item) || PyLong_Check(item)) {
@@ -2092,29 +2108,45 @@ static PyObject* _get_array(PyObject* item) {
 	    }
 	    Py_INCREF(item);
 	    scalar = item;
-	} else if (PyFloat_Check(item)) {
-	    d = PyFloat_AsDouble(item);
-	    dtype = PyArray_DescrFromType(NPY_DOUBLE);
-	    if (dtype == NULL) {
+	} else {
+	    if (PyFloat_Check(item)) {
+		d = PyFloat_AsDouble(item);
+		dtype = PyArray_DescrFromType(NPY_DOUBLE);
+		if (dtype == NULL) {
+		    goto fail;
+		}
+		scalar_data = (void*)&d;
+	    } else if (PyLong_Check(item)) {
+		il = PyLong_AsLongAndOverflow(item, &overflow);
+		if (il == -1) {
+		    if (overflow != 0 && !PyErr_Occurred()) {
+			ill = PyLong_AsLongLongAndOverflow(item, &overflow);
+			if (ill == -1) {
+			    goto fail;
+			} else if (sizeof(long long) == sizeof(int32_t)) {
+			    dtype = PyArray_DescrFromType(NPY_INT32);
+			    scalar_data = (void*)&ill;
+			} else if (sizeof(long long) == sizeof(int64_t)) {
+			    dtype = PyArray_DescrFromType(NPY_INT64);
+			    scalar_data = (void*)&ill;
+			}
+		    } else {
+			goto fail;
+		    }
+		} else if (sizeof(long) == sizeof(int32_t)) {
+		    dtype = PyArray_DescrFromType(NPY_INT32);
+		    scalar_data = (void*)&il;
+		} else if (sizeof(long) == sizeof(int64_t)) {
+		    dtype = PyArray_DescrFromType(NPY_INT64);
+		    scalar_data = (void*)&il;
+		}
+	    }
+	    if (dtype == NULL || scalar_data == NULL) {
+		Py_XDECREF(dtype);
 		goto fail;
 	    }
-	    scalar = PyArray_Scalar((void*)&d, dtype, NULL);
 	    Py_INCREF(dtype);
-	} else if (PyLong_Check(item)) {
-	    i = PyLong_AsLongLong(item);
-	    if (i == -1 && PyErr_Occurred()) {
-		goto fail;
-	    }
-	    if (sizeof(long long) == sizeof(int32_t)) {
-		dtype = PyArray_DescrFromType(NPY_INT32);
-	    } else if (sizeof(long long) == sizeof(int64_t)) {
-		dtype = PyArray_DescrFromType(NPY_INT64);
-	    }
-	    if (dtype == NULL) {
-		goto fail;
-	    }
-	    scalar = PyArray_Scalar((void*)&i, dtype, NULL);
-	    Py_INCREF(dtype);
+	    scalar = PyArray_Scalar(scalar_data, dtype, NULL);
 	}
 	if (scalar == NULL) {
 	    Py_DECREF(dtype);
@@ -2233,10 +2265,10 @@ fail:
     return -1;
 }
 
-PyObject* _copy_array(PyObject* item, PyObject* type, bool copyFlags, bool returnScalar) {
+PyObject* _copy_array(PyObject* item, PyObject* type, bool copyFlags, bool returnScalar,
+		      PyArray_Descr *dtype) {
     PyObject *arr = NULL, *out = NULL;
     PyArrayObject* arr_cast = NULL;
-    PyArray_Descr *dtype = NULL;
     int ndim = 0, flags = 0;
     npy_intp *dims = NULL, *strides = NULL;
     arr = _get_array(item);
@@ -2244,13 +2276,15 @@ PyObject* _copy_array(PyObject* item, PyObject* type, bool copyFlags, bool retur
 	goto fail;
     }
     if (PyArray_CheckScalar(arr)) {
-	dtype = PyArray_DescrNew(PyArray_DESCR((PyArrayObject*)arr));
+	if (dtype == NULL)
+	    dtype = PyArray_DescrNew(PyArray_DESCR((PyArrayObject*)arr));
 	if (dtype == NULL) {
 	    goto fail;
 	}
     } else {
 	arr_cast = (PyArrayObject*)arr;
-	dtype = PyArray_DescrNew(PyArray_DESCR(arr_cast));
+	if (dtype == NULL)
+	    dtype = PyArray_DescrNew(PyArray_DESCR(arr_cast));
 	if (dtype == NULL) {
 	    goto fail;
 	}
