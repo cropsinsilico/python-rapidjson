@@ -163,9 +163,9 @@ def test_Quantity_multiply(v1, u1, v2, u2, vExp, uExp):
     exp = units.Quantity(vExp, uExp)
     assert (x1 * x2) == exp
     assert (x2 * x1).is_equivalent(exp)
-    exp_scalar = units.Quantity(v1 * 2, u1)
-    assert (2 * x1) == exp_scalar
-    assert exp_scalar == (x1 * 2)
+    exp_scalar = units.Quantity(v1 * int(2), u1)
+    assert (int(2) * x1) == exp_scalar
+    assert exp_scalar == (x1 * int(2))
     x1 *= x2
     assert x1 == exp
 
@@ -196,12 +196,14 @@ def test_Quantity_modulus(v1, u1, v2, u2, vExp, uExp):
     x1 = units.Quantity(v1, u1)
     x2 = units.Quantity(v2, u2)
     exp = units.Quantity(vExp, uExp)
-    assert (x1 % x2) == exp
+    res = (x1 % x2)
+    assert np.isclose(res, exp)
+    assert np.isclose((x1 % x2), exp)
     exp_scalar = units.Quantity(v1 % 7, u1)
     assert (x1 % 7) == exp_scalar
     assert exp_scalar == (x1 % 7)
     x1 %= x2
-    assert x1 == exp
+    assert np.isclose(x1, exp)
 
 
 @pytest.mark.parametrize('v1,u1,u,vExp,uExp', [
@@ -225,10 +227,12 @@ def test_Quantity_set_get_units(v1, u1, u, vExp, uExp):
 ])
 def test_Quantity_set_get_value(v1, u1, v, vExp, uExp):
     x1 = units.Quantity(v1, u1)
+    assert np.dtype(type(x1.value)) == np.dtype(type(v1))
     x1.value = v
     exp = units.Quantity(vExp, uExp)
     assert x1 == exp
     assert x1.value == v
+    assert np.dtype(type(x1.value)) == np.dtype(type(v))
 
 
 @pytest.mark.parametrize('v1,u1', (

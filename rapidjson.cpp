@@ -1788,51 +1788,24 @@ struct PyHandler {
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value(str, length, allocator, schema);
 	if (x->HasUnits()) {
+	    PyObject* type = NULL;
 	    if (x->IsScalar()) {
-		QuantityObject* v = (QuantityObject*) Quantity_Type.tp_alloc(&Quantity_Type, 0);
-		value = (PyObject*)v;
-		Value enc;
-		int typenum = x->GetSubTypeNumpyType(enc);
-#define SET_QUANTITY_(npT, T, subT)					\
-		case (npT): {						\
-		    v->subtype = subT;					\
-		    v->quantity = x->GetScalarQuantity<T>().copy_void(); \
-		    break;						\
-		}
-		switch (typenum) {
-		SET_QUANTITY_(NPY_INT8  , int8_t  , kInt8QuantitySubType)
-		SET_QUANTITY_(NPY_INT16 , int16_t , kInt16QuantitySubType)
-		SET_QUANTITY_(NPY_INT32 , int32_t , kInt32QuantitySubType)
-		SET_QUANTITY_(NPY_INT64 , int64_t , kInt64QuantitySubType)
-		SET_QUANTITY_(NPY_UINT8 , uint8_t , kUint8QuantitySubType)
-		SET_QUANTITY_(NPY_UINT16, uint16_t, kUint16QuantitySubType)
-		SET_QUANTITY_(NPY_UINT32, uint32_t, kUint32QuantitySubType)
-		SET_QUANTITY_(NPY_UINT64, uint64_t, kUint64QuantitySubType)
-		SET_QUANTITY_(NPY_FLOAT16, float, kFloatQuantitySubType)
-		SET_QUANTITY_(NPY_FLOAT32, float, kFloatQuantitySubType)
-		SET_QUANTITY_(NPY_FLOAT64, double, kDoubleQuantitySubType)
-		SET_QUANTITY_(NPY_COMPLEX64 , std::complex<float>, kComplexFloatQuantitySubType)
-		SET_QUANTITY_(NPY_COMPLEX128, std::complex<double>, kComplexDoubleQuantitySubType)
-		default:
-		    std::cerr << "Unhandled numpy type: " << typenum << std::endl;
-		    Py_TYPE(value)->tp_free(value);
-		    value = NULL;
-		}
-#undef SET_QUANTITY_
+		type = (PyObject*)&Quantity_Type;
 	    } else {
-		RAPIDJSON_DEFAULT_ALLOCATOR allocator;
-		PyObject* arr = x->GetPythonObjectRaw();
-		PyObject* units = PyUnicode_FromString(x->GetUnits().GetString());
-		if (arr != NULL && units != NULL) {
-		    PyObject* args = PyTuple_Pack(2, arr, units);
-		    if (args != NULL) {
-			value = PyObject_Call((PyObject*)&QuantityArray_Type, args, NULL);
-			Py_DECREF(args);
-		    }
-		}
-		Py_XDECREF(arr);
-		Py_XDECREF(units);
+		type = (PyObject*)&QuantityArray_Type;
 	    }
+	    RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+	    PyObject* arr = x->GetPythonObjectRaw();
+	    PyObject* units = PyUnicode_FromString(x->GetUnits().GetString());
+	    if (arr != NULL && units != NULL) {
+		PyObject* args = PyTuple_Pack(2, arr, units);
+		if (args != NULL) {
+		    value = PyObject_Call(type, args, NULL);
+		    Py_DECREF(args);
+		}
+	    }
+	    Py_XDECREF(arr);
+	    Py_XDECREF(units);
 	} else if (x->IsPly()) {
 	    PlyObject* v = (PlyObject*) Ply_Type.tp_alloc(&Ply_Type, 0);
 	    value = (PyObject*)v;
@@ -3235,20 +3208,6 @@ PythonAccept(
             return false;
         ASSERT_VALID_SIZE(l);
         handler->String(jsonStr, (SizeType) l, true);
-    } else if (PyObject_IsInstance(object, (PyObject*)&Quantity_Type)) {
-	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
-	QuantityObject* v = (QuantityObject*) object;
-	SizeType nelements = 1;
-	Value* x = new Value();
-	bool ret = false;
-	SWITCH_QUANTITY_SUBTYPE_CALL(v, ret = x->SetNDArrayRaw,
-				     &nelements, 0, &allocator)
-	if (ret)
-	    ret = x->Accept(*handler);
-	delete x;
-	if (!ret)
-	    PyErr_Format(PyExc_TypeError, "Error serializing Quantity");
-	return ret;
     } else if (PyObject_IsInstance(object, (PyObject*)&QuantityArray_Type)) {
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	QuantityArrayObject* v = (QuantityArrayObject*) object;
@@ -3261,8 +3220,11 @@ PythonAccept(
 	if (ret)
 	    ret = x->Accept(*handler);
 	delete x;
-	if (!ret)
-	    PyErr_Format(PyExc_TypeError, "Error serializing QuantityArray");
+	if (!ret) {
+	    PyObject* cls_name = PyObject_GetAttrString((PyObject*)(object->ob_type),
+							"__name__");
+	    PyErr_Format(PyExc_TypeError, "Error serializing %s", PyUnicode_AsUTF8(cls_name));
+	}
 	return ret;
     } else if (PyObject_IsInstance(object, (PyObject*)&Ply_Type)) {
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
