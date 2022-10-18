@@ -4847,7 +4847,7 @@ static void validator_dealloc(PyObject* self)
 
 static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 {
-    PyObject* jsonObject;
+    PyObject* jsonObject = NULL;
     PyObject* objectHook = NULL;
     PyObject* numberModeObj = NULL;
     unsigned numberMode = NM_NAN;
@@ -5076,24 +5076,45 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
 static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     bool dontRaise = false;
-    if (kwargs) {
+    PyObject* kwargs_copy = NULL;
+    if (kwargs != NULL) {
 	PyObject* dontRaiseObject = PyDict_GetItemString(kwargs, "dont_raise");
-	if (dontRaiseObject != NULL) {
+	if (dontRaiseObject == NULL) {
+	    Py_INCREF(kwargs);
+	    kwargs_copy = kwargs;
+	} else {
 	    if (dontRaiseObject == Py_False)
 		dontRaise = false;
 	    else if (dontRaiseObject == Py_True)
 		dontRaise = true;
-	    if (PyDict_DelItemString(kwargs, "dont_raise") < 0)
+	    PyObject *kw_key, *kw_val;
+	    Py_ssize_t kw_pos = 0;
+	    kwargs_copy = PyDict_New();
+	    if (kwargs_copy == NULL)
 		return NULL;
+	    PyObject* tmp = PyUnicode_FromString("dont_raise");
+	    if (PyDict_Size(kwargs) > 1) {
+		while (PyDict_Next(kwargs, &kw_pos, &kw_key, &kw_val)) {
+		    if (PyObject_RichCompareBool(kw_key, tmp, Py_EQ))
+			continue;
+		    if (PyDict_SetItem(kwargs_copy, kw_key, kw_val) < 0) {
+			Py_DECREF(tmp);
+			return NULL;
+		    }
+		}
+	    }
+	    Py_DECREF(tmp);
 	}
     }
-    PyObject* validator2 = validator_new(&Validator_Type, args, kwargs);
+    PyObject* validator2 = validator_new(&Validator_Type, args, kwargs_copy);
+    Py_DECREF(kwargs_copy);
     if (validator2 == NULL)
 	return NULL;
 
     SchemaValidator v1(*((ValidatorObject*)self)->schema);
     SchemaValidator v2(*((ValidatorObject*)validator2)->schema);
     bool accept;
+    
     if (v1.RequiresPython() || v2.RequiresPython()) {
 	accept = v1.Compare(v2);
     } else {
@@ -5101,6 +5122,7 @@ static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwa
 	accept = v1.Compare(v2);
 	Py_END_ALLOW_THREADS
     }
+
     Py_DECREF(validator2);
     if (!accept) {
 	if (dontRaise) {
@@ -5111,7 +5133,6 @@ static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwa
 	    return NULL;
 	}
     }
-
     Py_INCREF(Py_True);
     return Py_True;
     
@@ -5380,7 +5401,7 @@ static PyObject*
 compare_schemas(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     PyObject *validatorObject1 = NULL, *validatorObject2 = NULL;
-    bool dontRaise = 0;
+    int dontRaise = 0;
     static char const* kwlist[] = {
 	"schemaA",
 	"schemaB",
@@ -5395,22 +5416,51 @@ compare_schemas(PyObject* self, PyObject* args, PyObject* kwargs)
 				     &dontRaise))
 	return NULL;
 
+    if (validatorObject1 == NULL || validatorObject2 == NULL) {
+	return NULL;
+    }
+
     PyObject* validator1_args = PyTuple_Pack(1, validatorObject1);
     if (validator1_args == NULL)
 	return NULL;
-    PyObject* validator1 = validator_new(&Validator_Type, validator1_args, NULL);
+    PyObject* validator1_kwargs = PyDict_New();
+    if (validator1_kwargs == NULL) {
+	Py_DECREF(validator1_args);
+	return NULL;
+    }
+    PyObject* validator1 = validator_new(&Validator_Type, validator1_args, validator1_kwargs);
     Py_DECREF(validator1_args);
+    Py_DECREF(validator1_kwargs);
     if (validator1 == NULL)
 	return NULL;
-    
+
+    // Py_INCREF(validatorObject2);
     PyObject* validator2_args = PyTuple_Pack(1, validatorObject2);
     if (validator2_args == NULL) {
 	Py_DECREF(validator1);
 	return NULL;
     }
-    PyObject* out = validator_compare(validator1, validator2_args, kwargs);
+    PyObject* validator2_kwargs = PyDict_New();
+    if (validator2_kwargs == NULL) {
+	Py_DECREF(validator1);
+	Py_DECREF(validator2_args);
+	return NULL;
+    }
+    PyObject* dontRaiseObject = NULL;
+    if (dontRaise)
+	dontRaiseObject = Py_True;
+    else
+	dontRaiseObject = Py_False;
+    if (PyDict_SetItemString(validator2_kwargs, "dont_raise", dontRaiseObject) < 0) {
+	Py_DECREF(validator1);
+	Py_DECREF(validator2_args);
+	Py_DECREF(validator2_kwargs);
+	return NULL;
+    }
+    PyObject* out = validator_compare(validator1, validator2_args, validator2_kwargs);
     Py_DECREF(validator1);
     Py_DECREF(validator2_args);
+    Py_DECREF(validator2_kwargs);
     return out;
 }
 
