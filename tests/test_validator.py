@@ -192,3 +192,24 @@ def test_check_schema_invalid(schema, details):
 
 def test_get_metaschema():
     rj.get_metaschema()
+
+
+@pytest.mark.parametrize('schemaA,schemaB,details', (
+    ('{"type": "number"}', '{"type": ["number", "schema"]}', None),
+    ('{"type": "number"}', '{"type": "schema"}',
+     ('{\n'
+      '    "message": "Incompatible schema property \'type\': [\\"number\\"] '
+      'vs [\\"schema\\"].",\n'
+      '    "instanceRef": "#",\n'
+      '    "schemaRef": "#"\n'
+      '}', )),
+))
+def test_compare_schemas(schemaA, schemaB, details):
+    assert rj.compare_schemas(schemaA, schemaA)
+    if details is None:
+        assert rj.compare_schemas(schemaA, schemaB)
+    else:
+        assert not rj.compare_schemas(schemaA, schemaB, dont_raise=True)
+        with pytest.raises(rj.ComparisonError) as error:
+            rj.compare_schemas(schemaA, schemaB)
+        assert error.value.args == details
