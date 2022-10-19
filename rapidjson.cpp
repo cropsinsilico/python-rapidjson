@@ -1340,13 +1340,18 @@ struct PyHandler {
         PyObject* sequence = ctx.object;
         stack.pop_back();
 
+        PyObject* replacement = NULL;
         if (decoderEndArray == NULL) {
-            Py_DECREF(sequence);
-            return true;
-        }
-
-        PyObject* replacement = PyObject_CallFunctionObjArgs(decoderEndArray, sequence,
-                                                             NULL);
+	    if (IsStructuredArray(sequence)) {
+		replacement = GetStructuredArray(sequence);
+	    } else {
+		Py_DECREF(sequence);
+		return true;
+	    }
+        } else {
+	    replacement = PyObject_CallFunctionObjArgs(decoderEndArray, sequence,
+						       NULL);
+	}
         Py_DECREF(sequence);
         if (replacement == NULL)
             return false;

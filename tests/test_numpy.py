@@ -71,3 +71,12 @@ def test_arrays(dumps, loads, np_type):
     loaded = loads(dumped)
     assert type(loaded) is type(value) and loaded.dtype == value.dtype
     np.testing.assert_equal(loaded, value)
+
+
+def test_structured_array(dumps, loads):
+    value = np.array([('Rex', 9, 81.0), ('Fido', 3, 27.0)],
+                     dtype=[('name', 'U10'), ('age', 'i4'), ('weight', 'f4')])
+    dumped = dumps(value)
+    loaded = loads(dumped)
+    assert type(loaded) is type(value) and loaded.dtype == value.dtype
+    np.testing.assert_equal(loaded, value)
