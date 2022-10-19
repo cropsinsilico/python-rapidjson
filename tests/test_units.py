@@ -502,6 +502,47 @@ def test_QuantityArray_trig(func, finv, x_in, x_out):
     assert np.allclose(finv(x_res), x_rad)
 
 
+@pytest.mark.parametrize('args,exp', [
+    ((units.QuantityArray(np.arange(3), "m"), ),
+     units.QuantityArray(np.arange(3), "m")),
+    ((units.QuantityArray(np.arange(3), "m"), 1.0),
+     [units.QuantityArray(np.arange(3), "m"), np.array([1.0])]),
+])
+def test_QuantityArray_atleast_1d(args, exp):
+    res = np.atleast_1d(*args)
+    if isinstance(exp, list):
+        assert isinstance(res, list)
+        assert len(res) == len(exp)
+        for x, y in zip(res, exp):
+            assert np.array_equal(x, y)
+    else:
+        assert np.array_equal(res, exp)
+
+
+@pytest.mark.parametrize('method', [
+    'concatenate',
+    'hstack',
+    'vstack'
+])
+@pytest.mark.parametrize('u1,u2,uExp,factor', [
+    ("m", "m", "m", 1.0),
+    ("m", "cm", "m", 0.01),
+    ("cm", "m", "cm", 100.0),
+])
+def test_QuantityArray_concat(method, u1, u2, uExp, factor):
+    arr1 = np.arange(3)
+    arr2 = np.arange(3, 6)
+    arr_exp = getattr(np, method)([arr1, factor * arr2])
+    x1 = units.QuantityArray(arr1, u1)
+    x2 = units.QuantityArray(arr2, u2)
+    exp = units.QuantityArray(arr_exp, uExp)
+    if method == 'vstack':
+        exp = exp.reshape((2, 3))
+    res = getattr(np, method)([x1, x2])
+    assert np.array_equal(res, exp)
+    assert res.units == exp.units
+
+
 @pytest.mark.parametrize('v1,u1', (
     (100.0, "cm"),
     ))

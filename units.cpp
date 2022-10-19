@@ -43,36 +43,7 @@ static PyObject* units_divide_inplace(PyObject *a, PyObject *b);
 static PyObject* units_power_inplace(PyObject *base, PyObject *exp, PyObject *mod);
 
 // Quantity
-// static void quantity_dealloc(PyObject* self);
 static PyObject* quantity_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
-// static PyObject* quantity_str(PyObject* self);
-// static PyObject* quantity_repr(PyObject* self);
-// static PyObject* quantity__format__(PyObject* self, PyObject* args);
-// static PyObject* quantity_units_get(PyObject* self, void* closure);
-// static int quantity_units_set(PyObject* self, PyObject* value, void* closure);
-// static PyObject* quantity_value_get(PyObject* type, void* closure);
-// static int quantity_value_set(PyObject* self, PyObject* value, void* closure);
-// static PyObject* quantity_is_compatible(PyObject* self, PyObject* args, PyObject* kwargs);
-// static PyObject* quantity_is_dimensionless(PyObject* self, PyObject* args);
-// static PyObject* quantity_is_equivalent(PyObject* self, PyObject* args);
-// static PyObject* quantity_to(PyObject* self, PyObject* args);
-// static PyObject* quantity_richcompare(PyObject *self, PyObject *other, int op);
-// static PyObject* quantity_add(PyObject *a, PyObject *b);
-// static PyObject* quantity_subtract(PyObject *a, PyObject *b);
-// static PyObject* quantity_multiply(PyObject *a, PyObject *b);
-// static PyObject* quantity_divide(PyObject *a, PyObject *b);
-// static PyObject* quantity_modulo(PyObject *a, PyObject *b);
-// static PyObject* quantity_power(PyObject *base, PyObject *exp, PyObject *mod);
-// static PyObject* quantity_long(PyObject* self);
-// static PyObject* quantity_float(PyObject* self);
-// static PyObject* quantity_floor_divide(PyObject *a, PyObject *b);
-// static PyObject* quantity_add_inplace(PyObject *a, PyObject *b);
-// static PyObject* quantity_subtract_inplace(PyObject *a, PyObject *b);
-// static PyObject* quantity_multiply_inplace(PyObject *a, PyObject *b);
-// static PyObject* quantity_divide_inplace(PyObject *a, PyObject *b);
-// static PyObject* quantity_modulo_inplace(PyObject *a, PyObject *b);
-// static PyObject* quantity_floor_divide_inplace(PyObject *a, PyObject *b);
-// static PyObject* quantity_power_inplace(PyObject *base, PyObject *exp, PyObject *mod);
 
 // QuantityArray
 static void quantity_array_dealloc(PyObject* self);
@@ -441,6 +412,10 @@ static PyObject* units_is_dimensionless(PyObject* self, PyObject* args) {
 
 
 static PyObject* units_richcompare(PyObject *self, PyObject *other, int op) {
+    if (!PyObject_IsInstance(other, (PyObject*)(&Units_Type))) {
+	Py_INCREF(Py_False);
+	return Py_False;
+    }
     UnitsObject* vself = (UnitsObject*) self;
     UnitsObject* vsolf = (UnitsObject*) other;
     switch (op) {
@@ -760,7 +735,9 @@ static QuantityArrayObject* quantity_array_coerce(PyObject* x) {
 static PyObject* quantity_array_numpy_tuple(PyObject* args,
 					    bool as_view = false,
 					    PyObject* convert_to = NULL) {
-    Py_ssize_t Nargs = PyTuple_Size(args);
+    if (!PySequence_Check(args))
+	return NULL;
+    Py_ssize_t Nargs = PySequence_Size(args);
     Py_ssize_t i = 0;
     PyObject *item, *new_item, *item_array, *out = NULL;
     bool error = false;
@@ -770,7 +747,7 @@ static PyObject* quantity_array_numpy_tuple(PyObject* args,
     }
     for (i = 0; i < Nargs; i++) {
 	new_item = NULL;
-	item = PyTuple_GetItem(args, i);
+	item = PySequence_GetItem(args, i);
 	if (item == NULL) {
 	    error = true;
 	    goto cleanup;
@@ -778,6 +755,7 @@ static PyObject* quantity_array_numpy_tuple(PyObject* args,
 	if (convert_to != NULL) {
 	    item_array = (PyObject*)quantity_array_coerce(item);
 	    if (item_array == NULL) {
+		Py_DECREF(item);
 		error = true;
 		goto cleanup;
 	    }
@@ -786,28 +764,25 @@ static PyObject* quantity_array_numpy_tuple(PyObject* args,
 	    Py_DECREF(item_array);
 	} else if (as_view) {
 	    if (!PyArray_Check(item)) {
+		Py_DECREF(item);
 		PyErr_SetString(units_error, "Internal error in trying to created a view from a non-array input");
 		error = true;
 		goto cleanup;
 	    }
 	    new_item = PyArray_View((PyArrayObject*)item, NULL, &PyArray_Type);
+	} else if (PyArray_Check(item)) {
+	    new_item = _copy_array(item, (PyObject*)&PyArray_Type, true, true);
 	} else {
-	    if (PyArray_Check(item)) {
-		new_item = _copy_array(item, (PyObject*)&PyArray_Type, true, true);
-		if (new_item == NULL) {
-		    error = true;
-		    goto cleanup;
-		}
-	    } else {
-		if (!PyArray_Converter(item, &new_item)) {
-		    error = true;
-		    goto cleanup;
-		}
-		if (PyArray_Check(new_item)) {
-		    new_item = PyArray_Return((PyArrayObject*)new_item);
-		}
+	    if (!PyArray_Converter(item, &new_item)) {
+		Py_DECREF(item);
+		error = true;
+		goto cleanup;
+	    }
+	    if (PyArray_Check(new_item)) {
+		new_item = PyArray_Return((PyArrayObject*)new_item);
 	    }
 	}
+	Py_DECREF(item);
 	if (new_item == NULL) {
 	    error = true;
 	    goto cleanup;
@@ -866,11 +841,17 @@ static PyObject* quantity_array_new(PyTypeObject* type, PyObject* args, PyObject
 
     if ((!nullUnits) &&
 	PyObject_IsInstance(valueObject, (PyObject*)&QuantityArray_Type)) {
+	// This version does not do conversion if valueObject is dimensionless
+	// if (((QuantityArrayObject*)valueObject)->units->units->is_dimensionless() &&
+	//     !((QuantityArrayObject*)valueObject)->units->units->has_factor()) {
+	//     valueObject = quantity_array_value_get_copy(valueObject, NULL);
+	// } else {
 	valueObject = quantity_array_get_converted_value(valueObject, units);
+	dont_pull = true;
+	// }
 	if (valueObject == NULL) {
 	    goto fail;
 	}
-	dont_pull = true;
     } else {
 	Py_INCREF(valueObject);
     }
@@ -1718,12 +1699,13 @@ static PyObject* quantity_array__array_wrap__(PyObject* self, PyObject* args) {
 }
 
 static PyObject* quantity_array__array_function__(PyObject* self, PyObject* c_args, PyObject* c_kwds) {
-    PyObject *func, *func_name, *types, *args, *kwargs, *alt_c_args;
+    PyObject *func, *func_name, *types, *args, *kwargs, *alt_c_args, *tmp;
     PyObject* alt_args = NULL;
     PyObject *i0, *i1;
     int res;
+    Py_ssize_t Nargs = 0, i = 0;
     PyObject *result = NULL, *result_units = NULL, *convert_units = NULL,
-	*result_type = NULL;
+	*result_type = NULL, *result_units_list = NULL;
     std::string func_nameS;
     static char const* kwlist[] = {"func", "types", "args", "kwargs", NULL};
 
@@ -1737,18 +1719,61 @@ static PyObject* quantity_array__array_function__(PyObject* self, PyObject* c_ar
     if (func_name == NULL) return NULL;
     func_nameS.insert(0, PyUnicode_AsUTF8(func_name));
     Py_DECREF(func_name);
+    Nargs = PyTuple_Size(args);
     // std::cerr << "__array_function__: " << func_nameS << std::endl;
-    if (func_nameS == "concatenate") {
-	i0 = PyTuple_GetItem(args, 0);
+    if (func_nameS == "concatenate" ||
+	func_nameS == "hstack" ||
+	func_nameS == "vstack") {
+	i1 = PyTuple_GetItem(args, 0);
+	if (i1 == NULL) {
+	    goto cleanup;
+	}
+	i0 = PySequence_GetItem(i1, 0);
 	if (i0 == NULL) {
 	    goto cleanup;
 	}
-	convert_units = _get_units(i0);
-	if (convert_units == NULL) {
+	result_units = _get_units(i0);
+	Py_DECREF(i0);
+	if (result_units == NULL) {
 	    goto cleanup;
 	}
-	Py_INCREF(convert_units);
-	result_units = convert_units;
+	// Py_INCREF(result_units);
+	tmp = quantity_array_numpy_tuple(i1, false, result_units);
+	if (tmp == NULL)
+	    goto cleanup;
+	alt_args = PyTuple_Pack(1, tmp);
+	Py_DECREF(tmp);
+	if (alt_args == NULL)
+	    goto cleanup;
+    } else if (func_nameS == "atleast_1d") {
+	// Units for each argument
+	if (Nargs == 1) {
+	    i0 = PyTuple_GetItem(args, 0);
+	    if (i0 == NULL) {
+		goto cleanup;
+	    }
+	    result_units = _get_units(i0);
+	    if (result_units == NULL) {
+		goto cleanup;
+	    }
+	} else {
+	    result_units_list = PyList_New(Nargs);
+	    if (result_units_list == NULL)
+		goto cleanup;
+	    for (i = 0; i < Nargs; i++) {
+		i0 = PyTuple_GetItem(args, i);
+		if (i0 == NULL) {
+		    goto cleanup;
+		}
+		result_units = _get_units(i0);
+		if (result_units == NULL) {
+		    goto cleanup;
+		}
+		if (PyList_SetItem(result_units_list, i, result_units) < 0)
+		    goto cleanup;
+		result_units = NULL;
+	    }
+	}
     } else if (func_nameS == "array_equal" ||
 	       func_nameS == "array_equiv" ||
 	       func_nameS == "allclose") {
@@ -1817,10 +1842,62 @@ static PyObject* quantity_array__array_function__(PyObject* self, PyObject* c_ar
 	Py_INCREF(result_type);
 	result = PyObject_Call(result_type, result_args, NULL);
 	Py_DECREF(result_args);
+    } else if (result != NULL && result_units_list != NULL) {
+	if (!PyList_Check(result) || (PyList_Size(result_units_list) != PyList_Size(result))) {
+	    Py_DECREF(result);
+	    result = NULL;
+	    goto cleanup;
+	}
+	for (i = 0; i < PyList_Size(result_units_list); i++) {
+	    PyObject* iresult = PyList_GetItem(result, i);
+	    if (iresult == NULL) {
+		Py_DECREF(result);
+		result = NULL;
+		goto cleanup;
+	    }
+	    i0 = PyTuple_GetItem(args, i);
+	    if (i0 == NULL) {
+		Py_DECREF(result);
+		result = NULL;
+		goto cleanup;
+	    }
+	    result_type = (PyObject*)(i0->ob_type);
+	    if (result_type != (PyObject*)(&QuantityArray_Type)) {
+		continue;
+	    }
+	    Py_INCREF(result_type);
+	    PyObject* iresult_units = PyList_GetItem(result_units_list, i);
+	    if (iresult_units == NULL) {
+		Py_DECREF(result);
+		result = NULL;
+		goto cleanup;
+	    }
+	    PyObject* result_args = PyTuple_Pack(2, iresult, iresult_units);
+	    if (result_args == NULL) {
+		Py_DECREF(result);
+		result = NULL;
+		goto cleanup;
+	    }
+	    iresult = PyObject_Call(result_type, result_args, NULL);
+	    Py_DECREF(result_args);
+	    Py_DECREF(result_type);
+	    result_type = NULL;
+	    if (iresult == NULL) {
+		Py_DECREF(result);
+		result = NULL;
+		goto cleanup;
+	    }
+	    if (PyList_SetItem(result, i, iresult) < 0) {
+		Py_DECREF(result);
+		result = NULL;
+		goto cleanup;
+	    }
+	}
     }
 cleanup:
     Py_XDECREF(result_type);
     Py_XDECREF(result_units);
+    Py_XDECREF(result_units_list);
     Py_XDECREF(convert_units);
     Py_XDECREF(alt_args);
     return result;
@@ -1896,48 +1973,6 @@ static int quantity_array_ass_subscript(PyObject* self, PyObject* key, PyObject*
 static PyObject* quantity_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 {
     return quantity_array_new(type, args, kwargs);
-    // PyObject* valueObject;
-    // PyObject* unitsObject = NULL;
-    // static char const* kwlist[] = {
-    // 	"value",
-    // 	"units",
-    // 	NULL
-    // };
-
-    // if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O:Quantity",
-    // 				     (char**) kwlist,
-    // 				     &valueObject, &unitsObject))
-    // 	return NULL;
-
-    // QuantityObject* v = (QuantityObject*) type->tp_alloc(type, 0);
-    // if (v == NULL)
-    //     return NULL;
-
-    // if (valueObject == NULL) {
-    // 	PyErr_SetString(PyExc_TypeError, "Invalid value");
-    // 	return NULL;
-    // }
-
-    // if (PyObject_IsInstance(valueObject, (PyObject*)&Quantity_Type)) {
-    // 	QuantityObject* vother = (QuantityObject*)valueObject;
-    // 	v->subtype = vother->subtype;
-    // 	SWITCH_QUANTITY_SUBTYPE(vother, v->quantity = , ->copy_void());
-    // } else if (unitsObject != NULL) {
-    // 	PyObject* units_args = PyTuple_Pack(1, unitsObject);
-    // 	unitsObject = PyObject_Call((PyObject*)&Units_Type, units_args, NULL);
-    // 	Py_DECREF(units_args);
-    // 	if (unitsObject == NULL)
-    // 	    return NULL;
-    // 	EXTRACT_PYTHON_VALUE(v->subtype, valueObject, val, assign_scalar_,
-    // 			     (v, val, ((UnitsObject*)unitsObject)->units),
-    // 			     { PyErr_SetString(PyExc_TypeError, "Expected scalar integer, floating point, or complex value"); return NULL; })
-    // } else {
-    // 	EXTRACT_PYTHON_VALUE(v->subtype, valueObject, val, assign_scalar_,
-    // 			     (v, val),
-    // 			     { PyErr_SetString(PyExc_TypeError, "Expected scalar integer, floating point, or complex value"); return NULL; })
-    // }
-	
-    // return (PyObject*) v;
 }
 
 ///////////////
