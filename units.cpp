@@ -127,7 +127,11 @@ PyObject* _copy_array(PyObject* item, PyObject* type, bool copyFlags=false, bool
 	    base_fnc = PyObject_GetAttrString(base_cls, #method);	\
 	}								\
 	if (base_fnc) {							\
-	    out = PyObject_CallNoArgs(base_fnc);			\
+	    PyObject* tmp_args = PyTuple_New(0);			\
+	    if (tmp_args != NULL) {					\
+		out = PyObject_Call(base_fnc, tmp_args, NULL);		\
+		Py_DECREF(tmp_args);					\
+	    }								\
 	}								\
 	Py_XDECREF(base_fnc);						\
 	Py_XDECREF(base_cls);						\
