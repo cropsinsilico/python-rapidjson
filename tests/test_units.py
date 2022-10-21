@@ -12,543 +12,520 @@ import numpy as np
 from rapidjson import units
 
 
-compat_param = [
-    ("cm", "m", True),
-    ("cm", "s", False),
-    ("hr", "d", True),
-    ("d", "hr", True)
-]
-equal_param = [
-    ('m', 'meter', True),
-    ('m', 'cm', False),
-    ('', 'n/a', True)
-]
+# ///////////
+# // Units //
+# ///////////
 
+class TestUnits:
+    @pytest.fixture(scope="class", params=[
+        ("kg", "kg"),
+        ("°C", "degC"),
+        ("g**2", "g**2"),
+        ("km", "km"),
+        ("s", "s"),
+        ("km*s", "km*s")
+    ])
+    def options(self, request):
+        return request.param
 
-@pytest.mark.parametrize('u,uStr', [
-    ("kg", "kg"),
-    ("°C", "degC"),
-    ("g**2", "g**2"),
-    ("km", "km"),
-    ("s", "s"),
-    ("km*s", "km*s")
-])
-def test_Units(u, uStr):
-    assert str(units.Units(u)) == uStr
+    @pytest.fixture(scope="class")
+    def x(self, options):
+        return units.Units(options[0])
 
+    def test_str(self, x, options):
+        assert str(x) == options[1]
 
-@pytest.mark.parametrize('u', [
-    'invalid'
-])
-def test_Units_error(u):
-    with pytest.raises(units.UnitsError):
-        units.Units(u)
+    @pytest.mark.parametrize('u', [
+        'invalid'
+    ])
+    def test_error(self, u):
+        with pytest.raises(units.UnitsError):
+            units.Units(u)
 
+    @pytest.mark.parametrize('u', [
+        "", "n/a", None,
+    ])
+    def test_empty(self, u):
+        x = units.Units(u)
+        assert x.is_dimensionless()
 
-@pytest.mark.parametrize('u', [
-    "", "n/a", None,
-])
-def test_Units_empty(u):
-    x = units.Units(u)
-    assert x.is_dimensionless()
+    @pytest.mark.parametrize('u1,u2,eq', [
+        ('m', 'meter', True),
+        ('m', 'cm', False),
+        ('', 'n/a', True)
+    ])
+    def test_equality(self, u1, u2, eq):
+        x1 = units.Units(u1)
+        x2 = units.Units(u2)
+        assert (x1 == x2) == eq
 
-
-@pytest.mark.parametrize('u1,u2,eq', equal_param)
-def test_Units_equality(u1, u2, eq):
-    x1 = units.Units(u1)
-    x2 = units.Units(u2)
-    assert (x1 == x2) == eq
-
-
-@pytest.mark.parametrize('u1,u2,compat', compat_param)
-def test_Units_is_compatible(u1, u2, compat):
-    units1 = units.Units(u1)
-    units2 = units.Units(u2)
-    assert units1.is_compatible(units2) == compat
-    assert units2.is_compatible(units1) == compat
+    @pytest.mark.parametrize('u1,u2,compat', [
+        ("cm", "m", True),
+        ("cm", "s", False),
+        ("hr", "d", True),
+        ("d", "hr", True)
+    ])
+    def test_is_compatible(self, u1, u2, compat):
+        units1 = units.Units(u1)
+        units2 = units.Units(u2)
+        assert units1.is_compatible(units2) == compat
+        assert units2.is_compatible(units1) == compat
 
 
 # //////////////
 # // Quantity //
 # //////////////
 
-@pytest.mark.parametrize('v,u', [
-    (1.0, 'cm'),
-    (int(3), 'g')
-])
-def test_Quantity(v, u):
-    x = units.Quantity(v, u)
-    print(str(x))
-    print(repr(x))
-    print('{:f}'.format(x))
-    print('%f' % (x))
+class TestQuantity:
+    @pytest.fixture(scope="class")
+    def cls(self):
+        return units.Quantity
 
+    @pytest.fixture(scope="class", params=[
+        ({'args': (5.5, ),
+          'units_equiv': 'n/a',
+          'units_incompat': 'g'}),
+        ({'args': (1.5, 'm'),
+          'args_compat': (150.0, 'cm'),
+          'units_equiv': 'meter',
+          'units_incompat': 's'}),
+        ({'args': (int(3), 'g'),
+          'args_compat': (0.003, 'kg'),
+          'units_equiv': 'grams',
+          'units_incompat': 'radians'}),
+        ({'args': (2, 'd'),
+          'args_compat': (48, 'hr'),
+          'units_equiv': 'days',
+          'units_incompat': 'cm'}),
+        ({'args': (int(1), "mol"),
+          'args_compat': (int(1e6), "umol")}),
+    ])
+    def options(self, request):
+        return request.param
 
-def test_Quantity_no_units():
-    str(units.Quantity(1.0))
+    @pytest.fixture(scope="class")
+    def value(self):
+        return 3
 
+    @pytest.fixture(scope="class")
+    def equals(self):
+        def wrapped_equals(x, y):
+            return (x == y)
+        return wrapped_equals
 
-@pytest.mark.parametrize('u1,u2,compat', compat_param)
-def test_Quantity_is_compatible(u1, u2, compat):
-    q1 = units.Quantity(1, u1)
-    q2 = units.Quantity(1, u2)
-    units2 = units.Units(u2)
-    assert q1.is_compatible(units2) == compat
-    assert q1.is_compatible(q2) == compat
-    assert q2.is_compatible(q1) == compat
+    @pytest.fixture(scope="class")
+    def assert_equal(self):
+        def wrapped_assert_equal(x, y):
+            assert x == y
+        return wrapped_assert_equal
 
+    @pytest.fixture(scope="class")
+    def assert_close(self):
+        def wrapped_assert_close(x, y):
+            return np.isclose(x, y)
+        return wrapped_assert_close
 
-@pytest.mark.parametrize('u1,u2,eq', equal_param)
-def test_Quantity_equality(u1, u2, eq):
-    x1 = units.Quantity(1, u1)
-    x2 = units.Quantity(1, u2)
-    assert (x1 == x2) == eq
+    @pytest.fixture(scope="class")
+    def args(self, options):
+        return options['args']
 
+    @pytest.fixture(scope="class")
+    def args_equiv(self, options):
+        if 'units_equiv' not in options:
+            pytest.skip("requires args_equiv")
+        return (options['args'][0], options['units_equiv'])
 
-@pytest.mark.parametrize('v1,u1,v2,u2', [
-    (1.0, "m", 100.0, "cm"),
-    (1.0, "kg", 1000.0, "g"),
-    (int(1), "mol", int(1e6), "umol")
-])
-def test_Quantity_conversion(v1, u1, v2, u2):
-    x1 = units.Quantity(v1, u1)
-    x2 = x1.to(u2)
-    exp = units.Quantity(v2, u2)
-    assert x2 == exp
+    @pytest.fixture(scope="class")
+    def args_compat(self, options):
+        if 'args_compat' not in options:
+            pytest.skip("requires args_compat")
+        return options['args_compat']
 
+    @pytest.fixture(scope="class")
+    def units_compat(self, options):
+        if 'args_compat' not in options:
+            pytest.skip("requires args_compat")
+        return options['args_compat'][1]
 
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (1.0, "m", 100.0, "cm", 2.0, "m"),
-    (100.0, "cm", 1.0, "m", 200.0, "cm"),
-])
-def test_Quantity_add(v1, u1, v2, u2, vExp, uExp):
-    x1 = units.Quantity(v1, u1)
-    x2 = units.Quantity(v2, u2)
-    exp = units.Quantity(vExp, uExp)
-    assert (x1 + x2) == exp
-    assert (x2 + x1).is_equivalent(exp)
-    with pytest.raises(units.UnitsError):
-        x1 + 1
-    with pytest.raises(units.UnitsError):
-        1 + x1
-    x1 += x2
-    assert x1 == exp
+    @pytest.fixture(scope="class")
+    def units_incompat(self, options):
+        if 'units_incompat' not in options:
+            pytest.skip("requires units_incompat")
+        return options['units_incompat']
 
+    @pytest.fixture(scope="class")
+    def x(self, cls, args):
+        return cls(*args)
 
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (1.0, "m", 50.0, "cm", 0.5, "m"),
-    (100.0, "cm", 0.5, "m", 50.0, "cm"),
-])
-def test_Quantity_subtract(v1, u1, v2, u2, vExp, uExp):
-    x1 = units.Quantity(v1, u1)
-    x2 = units.Quantity(v2, u2)
-    exp = units.Quantity(vExp, uExp)
-    assert (x1 - x2) == exp
-    with pytest.raises(units.UnitsError):
-        x1 - 1
-    with pytest.raises(units.UnitsError):
-        1 - x1
-    x1 -= x2
-    assert x1 == exp
+    @pytest.fixture(scope="class")
+    def x_equiv(self, cls, args_equiv):
+        return cls(*args_equiv)
 
+    @pytest.fixture(scope="class")
+    def x_compat(self, cls, args_compat):
+        return cls(*args_compat)
 
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (1.0, "m", 50.0, "s", 50.0, "m*s"),
-    (100.0, "cm", 0.5, "m", 5000.0, "cm**2"),
-    (0.5, "m", 100.0, "cm", 0.5, "m**2"),
-])
-def test_Quantity_multiply(v1, u1, v2, u2, vExp, uExp):
-    x1 = units.Quantity(v1, u1)
-    x2 = units.Quantity(v2, u2)
-    exp = units.Quantity(vExp, uExp)
-    assert (x1 * x2) == exp
-    assert (x2 * x1).is_equivalent(exp)
-    exp_scalar = units.Quantity(v1 * int(2), u1)
-    assert (int(2) * x1) == exp_scalar
-    assert exp_scalar == (x1 * int(2))
-    x1 *= x2
-    assert x1 == exp
+    @pytest.fixture(scope="class")
+    def x_incompat(self, cls, args, units_incompat):
+        return cls(args[0], units_incompat)
 
+    def test_str(self, x):
+        print(str(x))
+        print(repr(x))
 
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (1.0, "m", 50.0, "s", 0.02, "m/s"),
-    (100.0, "cm", 0.5, "m", 2.0, ""),
-    (0.5, "m", 100.0, "cm", 0.5, ""),
-])
-def test_Quantity_divide(v1, u1, v2, u2, vExp, uExp):
-    x1 = units.Quantity(v1, u1)
-    x2 = units.Quantity(v2, u2)
-    exp = units.Quantity(vExp, uExp)
-    assert (x1 / x2) == exp
-    exp_scalar = units.Quantity(v1 / 2, u1)
-    assert (x1 / 2) == exp_scalar
-    assert exp_scalar == (x1 / 2)
-    x1 /= x2
-    assert x1 == exp
+    def test_format(self, x):
+        print('{:f}'.format(x))
+        print('%f' % (x))
 
+    def test_pickle(self, x, assert_equal):
+        import pickle
+        dumped = pickle.dumps(x)
+        loaded = pickle.loads(dumped)
+        assert_equal(loaded, x)
 
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (100.0, "cm", 0.4, "m", 20.0, "cm"),
-    (0.5, "m", 100.0, "cm", 0.5, "m"),
-    (0.402, "m**2", 100.0, "cm**2", 0.002, "m**2"),
-])
-def test_Quantity_modulus(v1, u1, v2, u2, vExp, uExp):
-    x1 = units.Quantity(v1, u1)
-    x2 = units.Quantity(v2, u2)
-    exp = units.Quantity(vExp, uExp)
-    res = (x1 % x2)
-    assert np.isclose(res, exp)
-    assert np.isclose((x1 % x2), exp)
-    exp_scalar = units.Quantity(v1 % 7, u1)
-    assert (x1 % 7) == exp_scalar
-    assert exp_scalar == (x1 % 7)
-    x1 %= x2
-    assert np.isclose(x1, exp)
+    def test_is_compatible(self, x, x_equiv, x_compat, x_incompat,
+                           units_compat, units_incompat):
+        assert x.is_compatible(x)
+        assert x.is_compatible(x_equiv)
+        assert x.is_compatible(units_compat)
+        assert x.is_compatible(x_compat)
+        assert not x.is_compatible(x_incompat)
+        assert not x.is_compatible(units_incompat)
 
+    def test_equality(self, cls, x, x_equiv, x_incompat,
+                      assert_equal, assert_close, equals):
+        assert_equal(x, x)
+        assert_close(x, x)
+        assert_equal(x, x_equiv)
+        assert_close(x, x_equiv)
+        assert not equals(x, x_incompat)
 
-@pytest.mark.parametrize('v1,u1,u,vExp,uExp', [
-    (1.0, "m", "cm", 100.0, "cm"),
-    (int(1), "mol", "umol", int(1e6), "umol")
-])
-def test_Quantity_set_get_units(v1, u1, u, vExp, uExp):
-    x0 = units.Quantity(v1)
-    assert x0.units.is_dimensionless()
-    x1 = units.Quantity(v1, u1)
-    uSet = units.Units(u)
-    x1.units = uSet
-    exp = units.Quantity(vExp, uExp)
-    assert x1 == exp
-    assert x1.units == uSet
+    def test_conversion(self, assert_close, x, x_compat, units_compat):
+        x2 = x.to(units_compat)
+        assert_close(x2, x_compat)
 
+    @pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
+        (1.0, "m", 100.0, "cm", 2.0, "m"),
+        (100.0, "cm", 1.0, "m", 200.0, "cm"),
+    ])
+    def test_add(self, cls, assert_equal, value,
+                 v1, u1, v2, u2, vExp, uExp):
+        v1 *= value
+        v2 *= value
+        vExp *= value
+        x1 = cls(v1, u1)
+        x2 = cls(v2, u2)
+        exp = cls(vExp, uExp)
+        assert_equal(x1 + x2, exp)
+        assert (x2 + x1).is_equivalent(exp)
+        with pytest.raises(units.UnitsError):
+            x1 + 1
+        with pytest.raises(units.UnitsError):
+            1 + x1
+        x1 += x2
+        assert_equal(x1, exp)
 
-@pytest.mark.parametrize('v1,u1,v,vExp,uExp', [
-    (1.0, "m", 100.0, 100.0, "m"),
-    (int(1), "mol", int(1e6), int(1e6), "mol")
-])
-def test_Quantity_set_get_value(v1, u1, v, vExp, uExp):
-    x1 = units.Quantity(v1, u1)
-    assert np.dtype(type(x1.value)) == np.dtype(type(v1))
-    x1.value = v
-    exp = units.Quantity(vExp, uExp)
-    assert x1 == exp
-    assert x1.value == v
-    assert np.dtype(type(x1.value)) == np.dtype(type(v))
+    @pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
+        (1.0, "m", 50.0, "cm", 0.5, "m"),
+        (100.0, "cm", 0.5, "m", 50.0, "cm"),
+    ])
+    def test_subtract(self, cls, assert_equal, value,
+                      v1, u1, v2, u2, vExp, uExp):
+        v1 *= value
+        v2 *= value
+        vExp *= value
+        x1 = cls(v1, u1)
+        x2 = cls(v2, u2)
+        exp = cls(vExp, uExp)
+        assert_equal(x1 - x2, exp)
+        with pytest.raises(units.UnitsError):
+            x1 - 1
+        with pytest.raises(units.UnitsError):
+            1 - x1
+        x1 -= x2
+        assert_equal(x1, exp)
 
+    @pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
+        (1.0, "m", 50.0, "s", 50.0, "m*s"),
+        (100.0, "cm", 0.5, "m", 5000.0, "cm**2"),
+        (0.5, "m", 100.0, "cm", 0.5, "m**2"),
+    ])
+    def test_multiply(self, cls, assert_equal, value,
+                      v1, u1, v2, u2, vExp, uExp):
+        v1 *= value
+        v2 *= value
+        vExp *= value * value
+        x1 = cls(v1, u1)
+        x2 = cls(v2, u2)
+        exp = cls(vExp, uExp)
+        assert_equal(x1 * x2, exp)
+        assert (x2 * x1).is_equivalent(exp)
+        exp_scalar = cls(v1 * int(2), u1)
+        assert_equal(int(2) * x1, exp_scalar)
+        assert_equal(exp_scalar, x1 * int(2))
+        x1 *= x2
+        assert_equal(x1, exp)
 
-@pytest.mark.parametrize('v1,u1', (
-    (100.0, "cm"),
-    ))
-def test_Quantity_serialize(loads, dumps, v1, u1):
-    value = units.Quantity(v1, u1)
-    dumped = dumps(value)
-    loaded = loads(dumped)
-    assert loaded == value and type(loaded) is type(value)
+    @pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
+        (1.0, "m", 50.0, "s", 0.02, "m/s"),
+        (100.0, "cm", 0.5, "m", 2.0, ""),
+        (0.5, "m", 100.0, "cm", 0.5, ""),
+    ])
+    def test_divide(self, cls, assert_equal, value,
+                    v1, u1, v2, u2, vExp, uExp):
+        v1 *= value
+        v2 *= value
+        if isinstance(value, np.ndarray):
+            vExp *= np.ones(value.shape, value.dtype)
+        x1 = cls(v1, u1)
+        x2 = cls(v2, u2)
+        exp = cls(vExp, uExp)
+        assert_equal(x1 / x2, exp)
+        exp_scalar = cls(v1 / 2, u1)
+        assert_equal(x1 / 2, exp_scalar)
+        assert_equal(exp_scalar, x1 / 2)
+        x1 /= x2
+        assert_equal(x1, exp)
+
+    @pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
+        (100.0, "cm", 0.4, "m", 20.0, "cm"),
+        (0.5, "m", 100.0, "cm", 0.5, "m"),
+        (0.402, "m**2", 100.0, "cm**2", 0.002, "m**2"),
+    ])
+    def test_modulus(self, cls, assert_equal, assert_close, value,
+                     v1, u1, v2, u2, vExp, uExp):
+        v1 *= value
+        v2 *= value
+        vExp *= value
+        x1 = cls(v1, u1)
+        x2 = cls(v2, u2)
+        exp = cls(vExp, uExp)
+        res = (x1 % x2)
+        assert_close(res, exp)
+        assert_close(x1 % x2, exp)
+        exp_scalar = cls(v1 % 7, u1)
+        assert_equal(x1 % 7, exp_scalar)
+        assert_equal(exp_scalar, x1 % 7)
+        x1 %= x2
+        assert_close(x1, exp)
+
+    def test_set_get_units(self, cls, args, units_compat, x_compat,
+                           assert_close):
+        x0 = cls(args[0])
+        x1 = cls(*args)
+        assert x0.units.is_dimensionless()
+        uSet = units.Units(units_compat)
+        x1.units = units_compat
+        assert_close(x1, x_compat)
+        assert x1.units == uSet
+
+    def test_set_get_value(self, cls, assert_equal, x, args):
+        v = args[0] * 100
+        x1 = cls(*args)
+        x1.value = v
+        if len(args) == 1:
+            exp = cls(v)
+        else:
+            exp = cls(v, args[1])
+        assert_equal(x1, exp)
+        assert_equal(x1.value, v)
+        assert np.array(x1.value).dtype == np.array(v).dtype
+
+    def test_serialize(self, x, assert_equal, loads, dumps):
+        dumped = dumps(x)
+        loaded = loads(dumped)
+        assert_equal(loaded, x)
 
 
 # ///////////////////
 # // QuantityArray //
 # ///////////////////
 
-@pytest.mark.parametrize('v,u', [
-    ([0, 1, 2], 'cm'),
-    (np.arange(3, dtype=np.float32), 'cm'),
-    (np.arange(4, dtype=np.int8), 'g'),
-    (np.int32(3), 'degC'),
-])
-def test_QuantityArray(v, u):
-    x = units.QuantityArray(v, u)
-    print(str(x))
-    print(repr(x))
+class TestQuantityArray(TestQuantity):
+    @pytest.fixture(scope="class")
+    def cls(self):
+        return units.QuantityArray
 
+    @pytest.fixture(scope="class", params=[
+        ({'args': ([0, 1, 2], 'cm'),
+          'args_compat': ([0.0, 0.01, 0.02], 'm'),
+          'units_equiv': 'centimeter',
+          'units_incompat': '°C'}),
+        ({'args': (np.arange(3, dtype=np.float32), 'cm'),
+          'args_compat': (np.float32(0.01) * np.arange(3, dtype=np.float32),
+                          'm'),
+          'units_equiv': 'centimeter',
+          'units_incompat': '°F'}),
+        ({'args': (np.arange(3, dtype=np.float64), 'kg'),
+          'args_compat': (np.float64(1000.0) * np.arange(3, dtype=np.float64),
+                          'g'),
+          'units_equiv': 'kilogram',
+          'units_incompat': '°F'}),
+        ({'args': (np.arange(4, dtype=np.int8), 'g'),
+          'args_compat': (0.001 * np.arange(4, dtype=np.int8), 'kg'),
+          'units_equiv': 'grams',
+          'units_incompat': 'seconds'}),
+        ({'args': (np.int32(3), 'degC'),
+          'args_compat': (37.4, '°F'),
+          'units_equiv': '°C',
+          'units_incompat': 'g'}),
+        ({'args': (np.arange(4, dtype=int), "mol"),
+          'args_compat': (int(1e6) * np.arange(4, dtype=int), "umol"),
+          'units_equiv': 'mole',
+          'units_incompat': 'cm'}),
+    ])
+    def options(self, request):
+        return request.param
 
-def test_QuantityArray_no_units():
-    str(units.QuantityArray(np.arange(3)))
+    @pytest.fixture(scope="class")
+    def value(self):
+        return np.arange(1, 11, dtype=np.float32).reshape((2, 5))
 
+    @pytest.fixture(scope="class")
+    def equals(self):
+        def wrapped_equals(x, y):
+            return np.array_equal(x, y)
+        return wrapped_equals
 
-@pytest.mark.parametrize('u1,u2,compat', compat_param)
-def test_QuantityArray_is_compatible(u1, u2, compat):
-    arr = np.arange(3)
-    q1 = units.QuantityArray(arr, u1)
-    q2 = units.QuantityArray(arr, u2)
-    units2 = units.Units(u2)
-    assert q1.is_compatible(units2) == compat
-    assert q1.is_compatible(q2) == compat
-    assert q2.is_compatible(q1) == compat
-    assert q1.dtype == arr.dtype
-    assert q1.dtype == q2.dtype
-    assert q1.ndim == arr.ndim
-    assert q1.ndim == q2.ndim
-    assert q1.shape == arr.shape
-    assert q1.shape == q2.shape
+    @pytest.fixture(scope="class")
+    def assert_equal(self):
+        def wrapped_assert_equal(x, y):
+            if x.shape or y.shape:
+                assert np.array_equal(x, y)
+            else:
+                assert x == y
+        return wrapped_assert_equal
 
+    @pytest.fixture(scope="class")
+    def assert_close(self):
+        def wrapped_assert_close(x, y):
+            return np.allclose(x, y)
+        return wrapped_assert_close
 
-@pytest.mark.parametrize('u1,u2,eq', equal_param)
-def test_QuantityArray_equality(u1, u2, eq):
-    x1 = units.QuantityArray(np.arange(3), u1)
-    x2 = units.QuantityArray(np.arange(3), u2)
-    assert np.array_equal(x1, x2) == eq
-    assert np.allclose(x1, x2) == eq
+    def test_format(self):
+        pytest.skip("no format for array")
 
+    def test_array_properties(self, x, x_equiv, args):
+        assert x.dtype == np.array(args[0]).dtype
+        assert x.dtype == x_equiv.dtype
+        assert x.ndim == np.array(args[0]).ndim
+        assert x.ndim == x_equiv.ndim
+        assert x.shape == np.array(args[0]).shape
+        assert x.shape == x_equiv.shape
 
-@pytest.mark.parametrize('v1,u1,v2,u2', [
-    (np.arange(3, dtype=np.float32), "m",
-     np.float32(100.0) * np.arange(3, dtype=np.float32), "cm"),
-    (np.arange(3, dtype=np.float64), "kg",
-     np.float64(1000.0) * np.arange(3, dtype=np.float64), "g"),
-    (np.arange(4, dtype=int), "mol",
-     1e6 * np.arange(4, dtype=int), "umol")
-])
-def test_QuantityArray_conversion(v1, u1, v2, u2):
-    x1 = units.QuantityArray(v1, u1)
-    x2 = x1.to(u2)
-    exp = units.QuantityArray(v2, u2)
-    assert np.array_equal(x2, exp)
+    def test_add_shape_mismatch(self, cls, assert_equal):
+        x1 = cls(np.arange(6).reshape((3, 2)), 'cm')
+        x2 = cls(np.arange(6), 'cm')
+        with pytest.raises(ValueError):
+            x1 + x2
+        with pytest.raises(ValueError):
+            x2 + x1
 
+    def test_subtract_shape_mismatch(self, cls, assert_equal):
+        x1 = cls(np.arange(6).reshape((3, 2)), 'cm')
+        x2 = cls(np.arange(6), 'cm')
+        with pytest.raises(ValueError):
+            x1 - x2
+        with pytest.raises(ValueError):
+            x2 - x1
 
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (1.0, "m", 100.0, "cm", 2.0, "m"),
-    (100.0, "cm", 1.0, "m", 200.0, "cm"),
-])
-def test_QuantityArray_add(v1, u1, v2, u2, vExp, uExp):
-    arr = np.arange(6).reshape((3, 2))
-    arrAlt = np.arange(6)
-    x1 = units.QuantityArray(v1 * arr, u1)
-    x2 = units.QuantityArray(v2 * arr, u2)
-    exp = units.QuantityArray(vExp * arr, uExp)
-    xAlt = units.QuantityArray(v2 * arrAlt, u2)
-    res = x1 + x2
-    assert np.array_equal(res, exp)
-    assert np.array_equal((x1 + x2), exp)
-    assert (x2 + x1).is_equivalent(exp)
-    with pytest.raises(units.UnitsError):
-        x1 + 1
-    with pytest.raises(units.UnitsError):
-        1 + x1
-    with pytest.raises(ValueError):
-        x1 + xAlt
-    with pytest.raises(ValueError):
-        xAlt + x1
-    x1 += x2
-    assert np.array_equal(x1, exp)
+    def test_multiply_shape_mismatch(self, cls, assert_equal):
+        x1 = cls(np.arange(6).reshape((3, 2)), 'cm')
+        x2 = cls(np.arange(6), 'cm')
+        with pytest.raises(ValueError):
+            x1 * x2
+        with pytest.raises(ValueError):
+            x2 * x1
 
+    def test_divide_shape_mismatch(self, cls, assert_equal):
+        x1 = cls(np.arange(6).reshape((3, 2)), 'cm')
+        x2 = cls(np.arange(6), 'cm')
+        with pytest.raises(ValueError):
+            x1 / x2
+        with pytest.raises(ValueError):
+            x2 / x1
 
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (1.0, "m", 50.0, "cm", 0.5, "m"),
-    (100.0, "cm", 0.5, "m", 50.0, "cm"),
-])
-def test_QuantityArray_subtract(v1, u1, v2, u2, vExp, uExp):
-    arr = np.arange(6).reshape((3, 2))
-    arrAlt = np.arange(6)
-    x1 = units.QuantityArray(v1 * arr, u1)
-    x2 = units.QuantityArray(v2 * arr, u2)
-    exp = units.QuantityArray(vExp * arr, uExp)
-    xAlt = units.QuantityArray(v2 * arrAlt, u2)
-    assert np.array_equal((x1 - x2), exp)
-    with pytest.raises(units.UnitsError):
-        x1 - 1
-    with pytest.raises(units.UnitsError):
-        1 - x1
-    with pytest.raises(ValueError):
-        x1 - xAlt
-    with pytest.raises(ValueError):
-        xAlt - x1
-    x1 -= x2
-    assert np.array_equal(x1, exp)
+    def test_modulus_shape_mismatch(self, cls, assert_equal):
+        x1 = cls(np.arange(6).reshape((3, 2)), 'cm')
+        x2 = cls(np.arange(6), 'cm')
+        with pytest.raises(ValueError):
+            x1 % x2
+        with pytest.raises(ValueError):
+            x2 % x1
 
+    def test_set_get_item(self):
+        arr = np.ones((3, 2))
+        sub = np.ones(3)
+        x1 = units.QuantityArray(arr, 'cm')
+        xsub = units.QuantityArray(sub, 'cm')
+        assert np.array_equal(x1[:, 0], xsub)
+        assert x1[0, 0] == units.Quantity(1, 'cm')
+        x1[0, 0] = 3
+        x1[0, 1] = units.Quantity(0.03, 'm')
+        arr[0, 0] = 3
+        arr[0, 1] = 3
+        x2 = units.QuantityArray(arr, 'cm')
+        assert np.array_equal(x1, x2)
+        assert x1[0, 0] == units.Quantity(3, 'cm')
 
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (1.0, "m", 50.0, "s", 50.0, "m*s"),
-    (100.0, "cm", 0.5, "m", 5000.0, "cm**2"),
-    (0.5, "m", 100.0, "cm", 0.5, "m**2"),
-])
-def test_QuantityArray_multiply(v1, u1, v2, u2, vExp, uExp):
-    arr = np.arange(6).reshape((3, 2))
-    arrAlt = np.arange(6)
-    x1 = units.QuantityArray(v1 * arr, u1)
-    x2 = units.QuantityArray(v2 * arr, u2)
-    exp = units.QuantityArray(vExp * arr * arr, uExp)
-    xAlt = units.QuantityArray(v2 * arrAlt, u2)
-    assert np.array_equal((x1 * x2), exp)
-    assert (x2 * x1).is_equivalent(exp)
-    exp_scalar = units.QuantityArray(2 * v1 * arr, u1)
-    assert np.array_equal((2 * x1), exp_scalar)
-    assert np.array_equal(exp_scalar, (x1 * 2))
-    x1 *= x2
-    assert np.array_equal(x1, exp)
-    with pytest.raises(ValueError):
-        x1 * xAlt
-    with pytest.raises(ValueError):
-        xAlt * x1
-
-
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (1.0, "m", 50.0, "s", 0.02, "m/s"),
-    (100.0, "cm", 0.5, "m", 2.0, ""),
-    (0.5, "m", 100.0, "cm", 0.5, ""),
-])
-def test_QuantityArray_divide(v1, u1, v2, u2, vExp, uExp):
-    arr = np.arange(1, 7).reshape((3, 2))
-    arrAlt = np.arange(1, 7)
-    x1 = units.QuantityArray(v1 * arr, u1)
-    x2 = units.QuantityArray(v2 * arr, u2)
-    exp = units.QuantityArray(vExp * np.ones(arr.shape), uExp)
-    xAlt = units.QuantityArray(v2 * arrAlt, u2)
-    assert np.array_equal((x1 / x2), exp)
-    exp_scalar = units.QuantityArray(v1 * arr / 2, u1)
-    assert np.array_equal((x1 / 2), exp_scalar)
-    assert np.array_equal(exp_scalar, (x1 / 2))
-    x1 /= x2
-    assert np.array_equal(x1, exp)
-    with pytest.raises(ValueError):
-        x1 / xAlt
-    with pytest.raises(ValueError):
-        xAlt / x1
-
-
-@pytest.mark.parametrize('v1,u1,v2,u2,vExp,uExp', [
-    (100.0, "cm", 0.4, "m", 20.0, "cm"),
-    (0.5, "m", 100.0, "cm", 0.5, "m"),
-    (0.402, "m**2", 100.0, "cm**2", 0.002, "m**2"),
-])
-def test_QuantityArray_modulus(v1, u1, v2, u2, vExp, uExp):
-    arr = np.arange(1, 7).reshape((3, 2))
-    arrAlt = np.arange(1, 7)
-    x1 = units.QuantityArray(v1 * arr, u1)
-    x2 = units.QuantityArray(v2 * arr, u2)
-    exp = units.QuantityArray(vExp * arr, uExp)
-    xAlt = units.QuantityArray(v2 * arrAlt, u2)
-    res = x1 % x2
-    assert np.allclose(res, exp)
-    assert np.allclose((x1 % x2), exp)
-    exp_scalar = units.QuantityArray((v1 * arr) % 7, u1)
-    assert np.allclose((x1 % 7), exp_scalar)
-    assert np.allclose(exp_scalar, (x1 % 7))
-    x1 %= x2
-    assert np.allclose(x1, exp)
-    with pytest.raises(ValueError):
-        x1 % xAlt
-    with pytest.raises(ValueError):
-        xAlt % x1
-
-
-@pytest.mark.parametrize('v1,u1,u,vExp,uExp', [
-    (1.0, "m", "cm", 100.0, "cm"),
-    (int(1), "mol", "umol", int(1e6), "umol")
-])
-def test_QuantityArray_set_get_units(v1, u1, u, vExp, uExp):
-    arr = np.arange(6).reshape((3, 2))
-    x0 = units.QuantityArray(arr)
-    assert x0.units.is_dimensionless()
-    x1 = units.QuantityArray(v1 * arr, u1)
-    uSet = units.Units(u)
-    x1.units = uSet
-    exp = units.QuantityArray(vExp * arr, uExp)
-    assert np.array_equal(x1, exp)
-    assert x1.units == uSet
-
-
-@pytest.mark.parametrize('v1,u1,v,vExp,uExp', [
-    (1.0, "m", 100.0, 100.0, "m"),
-    (int(1), "mol", int(1e6), int(1e6), "mol")
-])
-def test_QuantityArray_set_get_value(v1, u1, v, vExp, uExp):
-    arr = np.arange(6).reshape((3, 2))
-    x1 = units.QuantityArray(v1 * arr, u1)
-    x1.value = v * arr
-    exp = units.QuantityArray(vExp * arr, uExp)
-    assert np.array_equal(x1, exp)
-    assert np.array_equal(x1.value, (v * arr))
-    np.testing.assert_equal(x1, exp)
-    np.testing.assert_equal(x1.value, (v * arr))
-
-
-def test_QuantityArray_set_get_item():
-    arr = np.ones((3, 2))
-    sub = np.ones(3)
-    x1 = units.QuantityArray(arr, 'cm')
-    xsub = units.QuantityArray(sub, 'cm')
-    assert np.array_equal(x1[:, 0], xsub)
-    assert x1[0, 0] == units.Quantity(1, 'cm')
-    x1[0, 0] = 3
-    x1[0, 1] = units.Quantity(0.03, 'm')
-    arr[0, 0] = 3
-    arr[0, 1] = 3
-    x2 = units.QuantityArray(arr, 'cm')
-    assert np.array_equal(x1, x2)
-    assert x1[0, 0] == units.Quantity(3, 'cm')
-
-
-@pytest.mark.parametrize('func,finv,x_in,x_out', (
-    (np.sin, np.arcsin, [-np.pi/2, 0, np.pi/2], [-1, 0, 1]),
-    (np.cos, np.arccos, [0, np.pi/2, np.pi], [1, 0, -1]),
-    (np.tan, np.arctan, [-np.pi/4, 0, np.pi/4], [-1, 0, 1]),
-    (np.sinh, np.arcsinh, [-np.pi/2, 0, np.pi/2],
-     [-2.30129890231, 0, 2.30129890231]),
-    (np.cosh, np.arccosh, [0, np.pi/2, np.pi],
-     [1, 2.50917847866, 11.5919532755]),
-    (np.tanh, np.arctanh, [-np.pi/4, 0, np.pi/4],
-     [-0.65579420263, 0, 0.65579420263])
-))
-def test_QuantityArray_trig(func, finv, x_in, x_out):
-    arr_rad = np.asarray(x_in)
-    arr_out = np.asarray(x_out)
-    x_rad = units.QuantityArray(x_in, "radians")
-    x_deg = units.QuantityArray(np.rad2deg(arr_rad), "degrees")
-    x_res = units.QuantityArray(x_out)
-    assert np.allclose(np.rad2deg(x_rad), x_deg)
-    assert np.allclose(np.deg2rad(x_deg), x_rad)
-    assert np.allclose(func(x_rad), arr_out)
-    assert np.allclose(func(x_deg), arr_out)
-    assert np.allclose(finv(x_res), x_rad)
-
-
-@pytest.mark.parametrize('args,exp', [
-    ((units.QuantityArray(np.arange(3), "m"), ),
-     units.QuantityArray(np.arange(3), "m")),
-    ((units.QuantityArray(np.arange(3), "m"), 1.0),
-     [units.QuantityArray(np.arange(3), "m"), np.array([1.0])]),
-])
-def test_QuantityArray_atleast_1d(args, exp):
-    res = np.atleast_1d(*args)
-    if isinstance(exp, list):
-        assert isinstance(res, list)
-        assert len(res) == len(exp)
-        for x, y in zip(res, exp):
-            assert np.array_equal(x, y)
-    else:
-        assert np.array_equal(res, exp)
-
-
-@pytest.mark.parametrize('method', [
-    'concatenate',
-    'hstack',
-    'vstack'
-])
-@pytest.mark.parametrize('u1,u2,uExp,factor', [
-    ("m", "m", "m", 1.0),
-    ("m", "cm", "m", 0.01),
-    ("cm", "m", "cm", 100.0),
-])
-def test_QuantityArray_concat(method, u1, u2, uExp, factor):
-    arr1 = np.arange(3)
-    arr2 = np.arange(3, 6)
-    arr_exp = getattr(np, method)([arr1, factor * arr2])
-    x1 = units.QuantityArray(arr1, u1)
-    x2 = units.QuantityArray(arr2, u2)
-    exp = units.QuantityArray(arr_exp, uExp)
-    if method == 'vstack':
-        exp = exp.reshape((2, 3))
-    res = getattr(np, method)([x1, x2])
-    assert np.array_equal(res, exp)
-    assert res.units == exp.units
-
-
-@pytest.mark.parametrize('v1,u1', (
-    (100.0, "cm"),
+    @pytest.mark.parametrize('func,finv,x_in,x_out', (
+        (np.sin, np.arcsin, [-np.pi/2, 0, np.pi/2], [-1, 0, 1]),
+        (np.cos, np.arccos, [0, np.pi/2, np.pi], [1, 0, -1]),
+        (np.tan, np.arctan, [-np.pi/4, 0, np.pi/4], [-1, 0, 1]),
+        (np.sinh, np.arcsinh, [-np.pi/2, 0, np.pi/2],
+         [-2.30129890231, 0, 2.30129890231]),
+        (np.cosh, np.arccosh, [0, np.pi/2, np.pi],
+         [1, 2.50917847866, 11.5919532755]),
+        (np.tanh, np.arctanh, [-np.pi/4, 0, np.pi/4],
+         [-0.65579420263, 0, 0.65579420263])
     ))
-def test_QuantityArray_serialize(loads, dumps, v1, u1):
-    arr = np.arange(6).reshape((3, 2))
-    value = units.QuantityArray(v1 * arr, u1)
-    dumped = dumps(value)
-    loaded = loads(dumped)
-    assert np.array_equal(loaded, value) and type(loaded) is type(value)
+    def test_trig(self, func, finv, x_in, x_out):
+        arr_rad = np.asarray(x_in)
+        arr_out = np.asarray(x_out)
+        x_rad = units.QuantityArray(x_in, "radians")
+        x_deg = units.QuantityArray(np.rad2deg(arr_rad), "degrees")
+        x_res = units.QuantityArray(x_out)
+        assert np.allclose(np.rad2deg(x_rad), x_deg)
+        assert np.allclose(np.deg2rad(x_deg), x_rad)
+        assert np.allclose(func(x_rad), arr_out)
+        assert np.allclose(func(x_deg), arr_out)
+        assert np.allclose(finv(x_res), x_rad)
+
+    @pytest.mark.parametrize('args,exp', [
+        ((units.QuantityArray(np.arange(3), "m"), ),
+         units.QuantityArray(np.arange(3), "m")),
+        ((units.QuantityArray(np.arange(3), "m"), 1.0),
+         [units.QuantityArray(np.arange(3), "m"), np.array([1.0])]),
+    ])
+    def test_atleast_1d(self, args, exp):
+        res = np.atleast_1d(*args)
+        if isinstance(exp, list):
+            assert isinstance(res, list)
+            assert len(res) == len(exp)
+            for x, y in zip(res, exp):
+                assert np.array_equal(x, y)
+        else:
+            assert np.array_equal(res, exp)
+
+    @pytest.mark.parametrize('method', [
+        'concatenate',
+        'hstack',
+        'vstack'
+    ])
+    @pytest.mark.parametrize('u1,u2,uExp,factor', [
+        ("m", "m", "m", 1.0),
+        ("m", "cm", "m", 0.01),
+        ("cm", "m", "cm", 100.0),
+    ])
+    def test_concat(self, method, u1, u2, uExp, factor):
+        arr1 = np.arange(3)
+        arr2 = np.arange(3, 6)
+        arr_exp = getattr(np, method)([arr1, factor * arr2])
+        x1 = units.QuantityArray(arr1, u1)
+        x2 = units.QuantityArray(arr2, u2)
+        exp = units.QuantityArray(arr_exp, uExp)
+        if method == 'vstack':
+            exp = exp.reshape((2, 3))
+        res = getattr(np, method)([x1, x2])
+        assert np.array_equal(res, exp)
+        assert res.units == exp.units

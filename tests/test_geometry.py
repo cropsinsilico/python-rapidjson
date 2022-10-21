@@ -197,139 +197,224 @@ def mesh_args_factory(mesh_base, mesh_array, mesh_dict):
     return args_factory
 
 
-@pytest.mark.parametrize('factory_options', [
-    ({'args': []}),
-    ({'args': ['vertices']}),
-    ({'args': ['vertices'], 'with_colors': True}),
-    ({'args': ['vertices', 'faces']}),
-    ({'args': ['vertices', 'faces', 'edges']}),
-    ({'args': ['vertices', 'faces', 'edges'], 'with_colors': True}),
-    ({'args': ['vertices'], 'kwargs': ['edges']}),
-    ({'args': ['vertices'], 'as_array': True}),
-    ({'args': ['vertices'], 'as_array': True, 'with_colors': True}),
-    ({'args': ['vertices', 'faces'], 'as_array': True}),
-    ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
-    ({'args': ['vertices', 'faces', 'edges'],
-      'as_array': True, 'with_colors': True}),
-    ({'args': ['vertices', 'faces', 'edges'],
-      'as_array': True, 'with_colors': 'in_array'}),
-    ({'args': ['vertices'], 'kwargs': ['edges'], 'as_array': True}),
-    ({'args': ['vertices'], 'as_list': True}),
-    ({'args': ['vertices', 'faces'], 'as_list': True}),
-    ({'args': ['vertices', 'faces', 'edges'], 'as_list': True}),
-    ({'args': ['vertices'], 'kwargs': ['edges'], 'as_list': True}),
-])
-def test_Ply(mesh_args_factory, factory_options):
-    args, kwargs, result = mesh_args_factory(**factory_options)
-    x = geometry.Ply(*args, **kwargs)
-    with pytest.raises(KeyError):
-        x['invalid']
-    assert 'invalid' not in x
-    assert x.as_dict() == result['dict']
-    if 'vertex' in result['dict']:
-        assert x.items()
-        assert 'vertex' in x
+class TestPly:
+    @pytest.fixture(scope="class")
+    def cls(self):
+        return geometry.Ply
+
+    @pytest.fixture(scope="class")
+    def isObj(self, cls):
+        return (cls == geometry.ObjWavefront)
+
+    @pytest.fixture(scope="class", params=[
+        ({'args': []}),
+        ({'args': ['vertices']}),
+        ({'args': ['vertices'], 'with_colors': True}),
+        ({'args': ['vertices', 'faces']}),
+        ({'args': ['vertices', 'faces', 'edges']}),
+        ({'args': ['vertices', 'faces', 'edges'], 'with_colors': True}),
+        ({'args': ['vertices'], 'kwargs': ['edges']}),
+        ({'args': ['vertices'], 'as_array': True}),
+        ({'args': ['vertices'], 'as_array': True, 'with_colors': True}),
+        ({'args': ['vertices', 'faces'], 'as_array': True}),
+        ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
+        ({'args': ['vertices', 'faces', 'edges'],
+          'as_array': True, 'with_colors': True}),
+        ({'args': ['vertices', 'faces', 'edges'],
+          'as_array': True, 'with_colors': 'in_array'}),
+        ({'args': ['vertices'], 'kwargs': ['edges'], 'as_array': True}),
+        ({'args': ['vertices'], 'as_list': True}),
+        ({'args': ['vertices', 'faces'], 'as_list': True}),
+        ({'args': ['vertices', 'faces', 'edges'], 'as_list': True}),
+        ({'args': ['vertices'], 'kwargs': ['edges'], 'as_list': True}),
+    ])
+    def factory_options(self, request, cls, isObj):
+        return dict(request.param, obj=isObj)
+
+    @pytest.fixture(scope="class")
+    def parameters(self, mesh_args_factory, factory_options):
+        return mesh_args_factory(**factory_options)
+
+    @pytest.fixture(scope="class")
+    def args(self, parameters):
+        return parameters[0]
+
+    @pytest.fixture(scope="class")
+    def kwargs(self, parameters):
+        return parameters[1]
+
+    @pytest.fixture(scope="class")
+    def result(self, parameters):
+        return parameters[2]
+
+    @pytest.fixture(scope="class")
+    def x(self, cls, args, kwargs):
+        return cls(*args, **kwargs)
+
+    @pytest.fixture(scope="class")
+    def y(self, cls, args, kwargs):
+        y = cls()
+        for k, v in zip(['vertex', 'face', 'edge'], args):
+            y.add_elements(k, v)
+        for k, v in kwargs.items():
+            y.add_elements(k, v)
+        return cls(*args, **kwargs)
+
+    @pytest.fixture(scope="class")
+    def requires_vertex(self, result):
+        if 'vertex' not in result['dict']:
+            pytest.skip("requires vertex data")
+
+    @pytest.fixture(scope="class")
+    def without_colors(self, factory_options):
+        if factory_options.get('with_colors', False):
+            pytest.skip("requires no colors")
+
+    @pytest.fixture(scope="class")
+    def without_array(self, factory_options):
+        if factory_options.get('as_array', False):
+            pytest.skip("requires no as_array")
+
+    def test_key_access(self, x, y, result):
+        with pytest.raises(KeyError):
+            x['invalid']
+        assert 'invalid' not in x
+        if 'vertex' in result['dict']:
+            assert 'vertex' in x
+            assert x["vertex"] == result['dict']['vertex']
+            assert x.items()
+            assert 'vertex' in y
+            assert y["vertex"] == result['dict']['vertex']
+            assert y.items()
+
+    def test_equality(self, cls, x, y, args):
+        assert x == y
+        assert x != 0
+        assert x is not None
+        if args:
+            assert x != cls()
+
+    def test_as_dict(self, x, y, result):
+        assert x.as_dict() == result['dict']
+        assert y.as_dict() == result['dict']
+        assert x.as_dict() == y.as_dict()
+
+    def test_as_dict_array(self, x, y, result, requires_vertex):
         np.testing.assert_array_equal(x.as_dict(as_array=True)['vertex'],
                                       result['arr']['vertex'])
-        assert x.get_elements("vertex") == result['dict']['vertex']
-        assert x.count_elements("vertices") == len(result['dict']['vertex'])
-        assert x["vertex"] == result['dict']['vertex']
-        np.testing.assert_array_equal(x.bounds[0], result['bounds'][0])
-        np.testing.assert_array_equal(x.bounds[1], result['bounds'][1])
-        assert(x.mesh == result['mesh'])
-    y = geometry.Ply()
-    for k, v in zip(['vertex', 'face', 'edge'], args):
-        y.add_elements(k, v)
-    for k, v in kwargs.items():
-        y.add_elements(k, v)
-    assert y.as_dict() == result['dict']
-    if 'vertex' in result['dict']:
         np.testing.assert_array_equal(y.as_dict(as_array=True)['vertex'],
                                       result['arr']['vertex'])
-        assert y.get_elements("vertex") == result['dict']['vertex']
-        assert y.count_elements("vertices") == len(result['dict']['vertex'])
-        assert y["vertex"] == result['dict']['vertex']
+        x_arr = x.as_dict(as_array=True)
+        y_arr = y.as_dict(as_array=True)
+        assert list(x_arr.keys()) == list(y_arr.keys())
+        for k in x_arr.keys():
+            np.testing.assert_array_equal(x_arr[k], y_arr[k])
+
+    def test_from_dict(self, cls, x, y, args, kwargs):
+        if not args:
+            pytest.skip("requires args")
+        dict_kwargs = copy.deepcopy(kwargs)
+        for k, v in zip(['vertex', 'face', 'edge'], args):
+            dict_kwargs[k] = v
+        z = cls.from_dict(dict_kwargs)
+        assert z == x
+        assert z.as_dict() == y.as_dict()
+        if args:
+            np.testing.assert_array_equal(z.bounds[0], y.bounds[0])
+            np.testing.assert_array_equal(z.bounds[1], y.bounds[1])
+        assert z.mesh == y.mesh
+
+    def test_bounds(self, x, y, args, result, requires_vertex):
+        np.testing.assert_array_equal(x.bounds[0], result['bounds'][0])
+        np.testing.assert_array_equal(x.bounds[1], result['bounds'][1])
         np.testing.assert_array_equal(y.bounds[0], result['bounds'][0])
         np.testing.assert_array_equal(y.bounds[1], result['bounds'][1])
-        assert(y.mesh == result['mesh'])
-    assert x == y
-    assert x.as_dict() == y.as_dict()
-    assert x != 0
-    assert x is not None
-    x_arr = x.as_dict(as_array=True)
-    y_arr = y.as_dict(as_array=True)
-    assert list(x_arr.keys()) == list(y_arr.keys())
-    for k in x_arr.keys():
-        np.testing.assert_array_equal(x_arr[k], y_arr[k])
-    if args:
-        np.testing.assert_array_equal(x.bounds[0], y.bounds[0])
-        np.testing.assert_array_equal(x.bounds[1], y.bounds[1])
-    assert x.mesh == y.mesh
-    if args:
-        assert x != geometry.Ply()
-        for k, v in zip(['vertex', 'face', 'edge'], args):
-            kwargs[k] = v
-    z = geometry.Ply.from_dict(kwargs)
-    assert z == x
-    assert z.as_dict() == y.as_dict()
-    if args:
-        np.testing.assert_array_equal(z.bounds[0], y.bounds[0])
-        np.testing.assert_array_equal(z.bounds[1], y.bounds[1])
-    assert z.mesh == y.mesh
+        if args:
+            np.testing.assert_array_equal(x.bounds[0], y.bounds[0])
+            np.testing.assert_array_equal(x.bounds[1], y.bounds[1])
 
+    def test_mesh(self, x, y, result, requires_vertex):
+        assert x.mesh == result['mesh']
+        assert y.mesh == result['mesh']
+        assert x.mesh == y.mesh
 
-@pytest.mark.parametrize('factory_options', [
-    ({'args': []}),
-    ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
-])
-def test_Ply_serialize(dumps, loads, mesh_args_factory, factory_options):
-    args, kwargs, _ = mesh_args_factory(**factory_options)
-    value = geometry.Ply(*args, **kwargs)
-    dumped = dumps(value)
-    loaded = loads(dumped)
-    assert loaded.as_dict() == value.as_dict()
-    assert loaded == value
+    def test_elements(self, x, y, result, requires_vertex):
+        assert x.get_elements("vertex") == result['dict']['vertex']
+        assert x.count_elements("vertices") == len(result['dict']['vertex'])
+        assert y.get_elements("vertex") == result['dict']['vertex']
+        assert y.count_elements("vertices") == len(result['dict']['vertex'])
 
+    def test_array(self, without_array, x,
+                   cls, mesh_args_factory, factory_options):
+        argsA, kwargsA, _ = mesh_args_factory(as_array=True, **factory_options)
+        xA = cls(*argsA, **kwargsA)
+        assert xA.as_dict() == x.as_dict()
+        assert xA == x
 
-@pytest.mark.parametrize('factory_options', [
-    ({'args': []}),
-    ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
-])
-def test_Ply_str(mesh_args_factory, factory_options):
-    args, kwargs, _ = mesh_args_factory(**factory_options)
-    value = geometry.Ply(*args, **kwargs)
-    dumped = str(value)
-    loaded = geometry.Ply(dumped)
-    assert loaded.as_dict() == value.as_dict()
-    assert loaded == value
+    def test_serialize(self, x, dumps, loads, args, kwargs):
+        print(args)
+        print(kwargs)
+        dumped = dumps(x)
+        loaded = loads(dumped)
+        print(str(x))
+        print(str(loaded))
+        assert loaded.as_dict() == x.as_dict()
+        assert loaded == x
 
+    def test_str(self, cls, x):
+        try:
+            dumped = str(x)
+            loaded = cls(dumped)
+            assert loaded.as_dict() == x.as_dict()
+            assert loaded == x
+        except geometry.GeometryError:
+            raise
 
-@pytest.mark.parametrize('factory_options', [
-    ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
-])
-def test_Ply_append(mesh_args_factory, factory_options):
-    args, kwargs, _ = mesh_args_factory(**factory_options)
-    value1 = geometry.Ply(*args, **kwargs)
-    value2 = geometry.Ply(*args, **kwargs)
-    args2, kwargs2, _ = mesh_args_factory(stack=2, **factory_options)
-    value3 = geometry.Ply(*args2, **kwargs2)
-    value1.append(value2)
-    assert value1.as_dict() == value3.as_dict()
-    assert value1 == value3
-    value0 = geometry.Ply(*args, **kwargs)
-    value0.append(value0)
-    assert value0.as_dict() == value3.as_dict()
-    assert value0 == value3
+    def test_append(self, cls, args, kwargs,
+                    mesh_args_factory, factory_options):
+        x1 = cls(*args, **kwargs)
+        x2 = cls(*args, **kwargs)
+        args2, kwargs2, _ = mesh_args_factory(stack=2, **factory_options)
+        x3 = cls(*args2, **kwargs2)
+        x1.append(x2)
+        assert x1.as_dict() == x3.as_dict()
+        if factory_options.get('obj', False):
+            assert x1.mesh == x3.mesh
+        else:
+            assert x1 == x3
+        x2.append(x2)
+        assert x2.as_dict() == x3.as_dict()
+        if factory_options.get('obj', False):
+            assert x2.mesh == x3.mesh
+        else:
+            assert x2 == x3
 
+    @pytest.mark.parametrize('invalid_factory_options', [
+        ({'args': [], 'kwargs': ['faces']}),
+        ({'args': [], 'kwargs': ['edges']}),
+    ])
+    def test_invalid(self, cls, isObj, mesh_args_factory,
+                     invalid_factory_options):
+        args, kwargs, _ = mesh_args_factory(obj=isObj,
+                                            **invalid_factory_options)
+        with pytest.raises(geometry.GeometryError):
+            cls(*args, **kwargs)
 
-@pytest.mark.parametrize('factory_options', [
-    ({'args': [], 'kwargs': ['faces']}),
-    ({'args': [], 'kwargs': ['edges']}),
-])
-def test_Ply_invalid(mesh_args_factory, factory_options):
-    args, kwargs, _ = mesh_args_factory(**factory_options)
-    with pytest.raises(geometry.GeometryError):
-        geometry.Ply(*args, **kwargs)
+    def test_pickle(self, x):
+        import pickle
+        dumped = pickle.dumps(x)
+        loaded = pickle.loads(dumped)
+        assert loaded.as_dict() == x.as_dict()
+        assert loaded == x
+
+    def test_colors(self, without_colors, requires_vertex, cls, x, result,
+                    mesh_args_factory, factory_options):
+        argsC, kwargsC, _ = mesh_args_factory(with_colors=True,
+                                              **factory_options)
+        xC = cls(*argsC, **kwargsC)
+        np.testing.assert_array_equal(xC.get_colors("vertex", as_array=True),
+                                      result['vertex_colors'])
+        x.add_colors("vertex", result['vertex_colors'])
 
 
 @pytest.mark.parametrize('factory_options', [
@@ -345,126 +430,10 @@ def test_Ply_color(mesh_args_factory, factory_options):
     value.add_colors("vertex", result['vertex_colors'])
 
 
-@pytest.mark.parametrize('factory_options', [
-    ({'args': []}),
-    ({'args': ['vertices']}),
-    ({'args': ['vertices'], 'with_colors': True}),
-    ({'args': ['vertices', 'faces']}),
-    ({'args': ['vertices', 'faces', 'edges']}),
-    ({'args': ['vertices', 'faces', 'edges'], 'with_colors': True}),
-    ({'args': ['vertices'], 'kwargs': ['edges']}),
-    ({'args': ['vertices'], 'as_array': True}),
-    ({'args': ['vertices'], 'as_array': True, 'with_colors': True}),
-    ({'args': ['vertices', 'faces'], 'as_array': True}),
-    ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
-    ({'args': ['vertices', 'faces', 'edges'],
-      'as_array': True, 'with_colors': True}),
-    ({'args': ['vertices', 'faces', 'edges'],
-      'as_array': True, 'with_colors': 'in_array'}),
-    ({'args': ['vertices'], 'kwargs': ['edges'], 'as_array': True}),
-    ({'args': ['vertices'], 'as_list': True}),
-    ({'args': ['vertices', 'faces'], 'as_list': True}),
-    ({'args': ['vertices', 'faces', 'edges'], 'as_list': True}),
-    ({'args': ['vertices'], 'kwargs': ['edges'], 'as_list': True}),
-])
-def test_Obj(mesh_args_factory, factory_options):
-    args, kwargs, result = mesh_args_factory(obj=True, **factory_options)
-    x = geometry.ObjWavefront(*args, **kwargs)
-    with pytest.raises(KeyError):
-        x['invalid']
-    assert 'invalid' not in x
-    assert x.as_dict() == result['dict']
-    if 'vertex' in result['dict']:
-        assert x.items()
-        assert 'vertex' in x
-        np.testing.assert_array_equal(x.as_dict(as_array=True)['vertex'],
-                                      result['arr']['vertex'])
-        assert x.get_elements("vertex") == result['dict']['vertex']
-        assert x.count_elements("vertices") == len(result['dict']['vertex'])
-        assert x["vertex"] == result['dict']['vertex']
-        np.testing.assert_array_equal(x.bounds[0], result['bounds'][0])
-        np.testing.assert_array_equal(x.bounds[1], result['bounds'][1])
-        assert(x.mesh == result['mesh'])
-    y = geometry.ObjWavefront()
-    for k, v in zip(['vertex', 'face', 'edge'], args):
-        y.add_elements(k, v)
-    for k, v in kwargs.items():
-        y.add_elements(k, v)
-    assert y.as_dict() == result['dict']
-    if 'vertex' in result['dict']:
-        np.testing.assert_array_equal(y.as_dict(as_array=True)['vertex'],
-                                      result['arr']['vertex'])
-        assert y.get_elements("vertex") == result['dict']['vertex']
-        assert y.count_elements("vertices") == len(result['dict']['vertex'])
-        assert y["vertex"] == result['dict']['vertex']
-        np.testing.assert_array_equal(y.bounds[0], result['bounds'][0])
-        np.testing.assert_array_equal(y.bounds[1], result['bounds'][1])
-        assert(y.mesh == result['mesh'])
-    assert x == y
-    assert x.as_dict() == y.as_dict()
-    assert x != 0
-    assert x is not None
-    x_arr = x.as_dict(as_array=True)
-    y_arr = y.as_dict(as_array=True)
-    assert list(x_arr.keys()) == list(y_arr.keys())
-    for k in x_arr.keys():
-        np.testing.assert_array_equal(x_arr[k], y_arr[k])
-    if args:
-        np.testing.assert_array_equal(x.bounds[0], y.bounds[0])
-        np.testing.assert_array_equal(x.bounds[1], y.bounds[1])
-    assert x.mesh == y.mesh
-    if args:
-        assert x != geometry.ObjWavefront()
-        for k, v in zip(['vertex', 'face', 'edge'], args):
-            kwargs[k] = v
-    z = geometry.ObjWavefront.from_dict(kwargs)
-    assert z == x
-    assert z.as_dict() == y.as_dict()
-    if args:
-        np.testing.assert_array_equal(z.bounds[0], y.bounds[0])
-        np.testing.assert_array_equal(z.bounds[1], y.bounds[1])
-    assert z.mesh == y.mesh
-
-
-@pytest.mark.parametrize('factory_options', [
-    ({'args': []}),
-    ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
-])
-def test_Obj_serialize(dumps, loads, mesh_args_factory, factory_options):
-    args, kwargs, _ = mesh_args_factory(obj=True, **factory_options)
-    value = geometry.ObjWavefront(*args, **kwargs)
-    dumped = dumps(value)
-    loaded = loads(dumped)
-    assert loaded.as_dict() == value.as_dict()
-    assert loaded == value
-
-
-@pytest.mark.parametrize('factory_options', [
-    ({'args': ['vertices', 'faces', 'edges'], 'as_array': True}),
-])
-def test_Obj_append(mesh_args_factory, factory_options):
-    args, kwargs, _ = mesh_args_factory(obj=True, **factory_options)
-    value1 = geometry.ObjWavefront(*args, **kwargs)
-    value2 = geometry.ObjWavefront(*args, **kwargs)
-    args2, kwargs2, _ = mesh_args_factory(obj=True, stack=2, **factory_options)
-    value3 = geometry.ObjWavefront(*args2, **kwargs2)
-    value1.append(value2)
-    assert value1.as_dict() == value3.as_dict()
-    assert value1.mesh == value3.mesh
-    value0 = geometry.ObjWavefront(*args, **kwargs)
-    value0.append(value0)
-    assert value0.as_dict() == value3.as_dict()
-    assert value0.mesh == value3.mesh
-
-
-@pytest.mark.parametrize('factory_options', [
-    ({'args': [], 'kwargs': ['faces']}),
-    ({'args': [], 'kwargs': ['edges']}),
-])
-def test_Obj_invalid(mesh_args_factory, factory_options):
-    args, kwargs, _ = mesh_args_factory(obj=True, **factory_options)
-    with pytest.raises(geometry.GeometryError):
-        geometry.ObjWavefront(*args, **kwargs)
+class TestObj(TestPly):
+    @pytest.fixture(scope="class")
+    def cls(self):
+        return geometry.ObjWavefront
 
 
 @pytest.mark.parametrize('factory_options', [
