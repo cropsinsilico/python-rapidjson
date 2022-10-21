@@ -37,7 +37,8 @@ def mesh_base():
                      [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1],
                      [0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1],
                      [0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0],
-                     [0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0]]}
+                     [0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0]],
+            'comments': ['Test comment 1', 'Test comment 2']}
     bounds = (base['vertices'].min(axis=0),
               base['vertices'].max(axis=0))
 
@@ -59,6 +60,8 @@ def mesh_base():
                 out[k] = copy.deepcopy(base[k])
                 for _ in range(1, stack):
                     out[k] += base[k]
+            elif k in ['comments']:
+                out[k] = stack * base['comments']
             else:
                 out[k] = np.vstack([base[k] for i in range(stack)])
         if obj:
@@ -77,7 +80,8 @@ def mesh_dict():
         ignore = -1
         if obj:
             ignore = 0
-        out = {'vertices': [], 'edges': [], 'faces': []}
+        out = {'vertices': [], 'edges': [], 'faces': [],
+               'comments': base['comments']}
         # 'material': 'fake_material',
         for i in range(len(base['vertices'])):
             ivert = {}
@@ -129,12 +133,13 @@ def mesh_args_factory(mesh_base, mesh_array, mesh_dict):
     aliases = {'vertices': 'vertex',
                'vertexes': 'vertex',
                'edges': 'edge',
-               'faces': 'face'}
+               'faces': 'face',
+               'comments': 'comment'}
     result = {'bounds': mesh_base()['bounds']}
 
-    def args_factory(args=["vertices", "faces", "edges"], kwargs=[],
-                     as_array=False, as_list=False, with_colors=False,
-                     stack=1, obj=False):
+    def args_factory(args=["vertices", "faces", "edges", "comments"],
+                     kwargs=[], as_array=False, as_list=False,
+                     with_colors=False, stack=1, obj=False):
         zero = 0
         if obj:
             zero = 1
@@ -213,7 +218,7 @@ class TestPly:
         ({'args': ['vertices', 'faces']}),
         ({'args': ['vertices', 'faces', 'edges']}),
         ({'args': ['vertices', 'faces', 'edges'], 'with_colors': True}),
-        ({'args': ['vertices'], 'kwargs': ['edges']}),
+        ({'args': ['vertices'], 'kwargs': ['edges', 'comments']}),
         ({'args': ['vertices'], 'as_array': True}),
         ({'args': ['vertices'], 'as_array': True, 'with_colors': True}),
         ({'args': ['vertices', 'faces'], 'as_array': True}),
@@ -352,12 +357,8 @@ class TestPly:
         assert xA == x
 
     def test_serialize(self, x, dumps, loads, args, kwargs):
-        print(args)
-        print(kwargs)
         dumped = dumps(x)
         loaded = loads(dumped)
-        print(str(x))
-        print(str(loaded))
         assert loaded.as_dict() == x.as_dict()
         assert loaded == x
 
@@ -388,6 +389,36 @@ class TestPly:
             assert x2.mesh == x3.mesh
         else:
             assert x2 == x3
+
+    def test_merge(self, cls, args, kwargs,
+                   mesh_args_factory, factory_options):
+        x1 = cls(*args, **kwargs)
+        x2 = cls(*args, **kwargs)
+        args2, kwargs2, _ = mesh_args_factory(stack=2, **factory_options)
+        x3 = cls(*args2, **kwargs2)
+        args3, kwargs3, _ = mesh_args_factory(stack=3, **factory_options)
+        x4 = cls(*args3, **kwargs3)
+        # 1 as argument
+        x_merge1 = x1.merge(x2)
+        assert x_merge1.as_dict() == x3.as_dict()
+        if factory_options.get('obj', False):
+            assert x_merge1.mesh == x3.mesh
+        else:
+            assert x_merge1 == x3
+        # 2 as arguments
+        x_merge2 = x1.merge(x1, x2)
+        assert x_merge2.as_dict() == x4.as_dict()
+        if factory_options.get('obj', False):
+            assert x_merge2.mesh == x4.mesh
+        else:
+            assert x_merge2 == x4
+        # 2 as list
+        x_merge3 = x1.merge([x1, x2])
+        assert x_merge3.as_dict() == x4.as_dict()
+        if factory_options.get('obj', False):
+            assert x_merge3.mesh == x4.mesh
+        else:
+            assert x_merge3 == x4
 
     @pytest.mark.parametrize('invalid_factory_options', [
         ({'args': [], 'kwargs': ['faces']}),

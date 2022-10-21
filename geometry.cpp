@@ -40,6 +40,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_from_dict(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_count_elements(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_append(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* ply_merge(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_bounds_get(PyObject* self, void*);
 static PyObject* ply_mesh_get(PyObject* self, void*);
 static PyObject* ply_str(PyObject* self);
@@ -64,6 +65,7 @@ static PyObject* objwavefront_as_dict(PyObject* self, PyObject* args, PyObject* 
 static PyObject* objwavefront_from_dict(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_count_elements(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* objwavefront_merge(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_bounds_get(PyObject* self, void*);
 static PyObject* objwavefront_mesh_get(PyObject* self, void*);
 static PyObject* objwavefront_str(PyObject* self);
@@ -114,6 +116,9 @@ static PyMethodDef ply_methods[] = {
     {"append", (PyCFunction) ply_append,
      METH_VARARGS,
      "Append another 3D structure."},
+    {"merge", (PyCFunction) ply_merge,
+     METH_VARARGS,
+     "Merge this structure with one or more other 3D structures and return the result."},
     {"items", (PyCFunction) ply_items,
      METH_NOARGS,
      "Get the dict-like list of items in the structure."},
@@ -552,8 +557,26 @@ static PyObject* ply_add_elements(PyObject* self, PyObject* args, PyObject* kwar
 	Py_DECREF(iargs);
 	return out;
     }
-    
-    if (PyList_Check(x)) {
+
+    if (ply_alias2base(name) == "comment") {
+	if (!PySequence_Check(x)) {
+	    PyErr_SetString(PyExc_TypeError, "Ply comments must be provided as a sequence of strings");
+	    return NULL;
+	}
+	for (Py_ssize_t iC = 0; iC != PySequence_Size(x); iC++) {
+	    PyObject* iComment = PySequence_GetItem(x, iC);
+	    if (iComment == NULL)
+		return NULL;
+	    if (!PyUnicode_Check(iComment)) {
+		PyErr_SetString(PyExc_TypeError, "Ply comments must be strings");
+		Py_DECREF(iComment);
+		return NULL;
+	    }
+	    std::string iCommentS(PyUnicode_AsUTF8(iComment));
+	    v->ply->comments.push_back(iCommentS);
+	    Py_DECREF(iComment);
+	}
+    } else if (PyList_Check(x)) {
 	for (Py_ssize_t i = 0; i < PyList_Size(x); i++) {
 	    PyObject* item = PyList_GetItem(x, i);
 	    if (item == NULL) return NULL;
@@ -795,6 +818,34 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* out = PyDict_New();
     if (out == NULL)
 	return NULL;
+    if (v->ply->comments.size() > 0) {
+	PyObject* comments = PyList_New((Py_ssize_t)(v->ply->comments.size()));
+	if (comments == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	Py_ssize_t i = 0;
+	for (std::vector<std::string>::const_iterator it = v->ply->comments.begin();
+	     it != v->ply->comments.end(); it++, i++) {
+	    PyObject* iComment = PyUnicode_FromStringAndSize(it->c_str(), (Py_ssize_t)(it->size()));
+	    if (iComment == NULL) {
+		Py_DECREF(comments);
+		Py_DECREF(out);
+		return NULL;
+	    }
+	    if (PyList_SetItem(comments, i, iComment) < 0) {
+		Py_DECREF(comments);
+		Py_DECREF(out);
+		return NULL;
+	    }
+	}
+	if (PyDict_SetItemString(out, "comment", comments) < 0) {
+	    Py_DECREF(comments);
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	Py_DECREF(comments);
+    }
     for (std::vector<std::string>::const_iterator it = v->ply->element_order.begin(); it != v->ply->element_order.end(); it++) {
 	std::map<std::string,PlyElementSet>::const_iterator eit = v->ply->elements.find(*it);
 	if (eit == v->ply->elements.end()) continue;
@@ -929,6 +980,72 @@ static PyObject* ply_append(PyObject* self, PyObject* args, PyObject* kwargs) {
 	return NULL;
     }
     Py_RETURN_NONE;
+}
+
+
+static PyObject* ply_merge(PyObject* self, PyObject* args, PyObject*) {
+    PyObject* tmp_args = PyTuple_New(0);
+    if (tmp_args == NULL)
+	return NULL;
+    PyObject* type = (PyObject*)self->ob_type;
+    PyObject* out = PyObject_Call(type, tmp_args, NULL);
+    Py_DECREF(tmp_args);
+    if (out == NULL)
+	return NULL;
+    PyObject* append_list = NULL;
+    if (PyTuple_Size(args) == 1) {
+	append_list = PyTuple_GetItem(args, 0);
+    } else {
+	append_list = args;
+    }
+    PyObject* result = NULL;
+    PyObject* item_args = PyTuple_Pack(1, self);
+    if (item_args == NULL) {
+	Py_DECREF(out);
+	return NULL;
+    }
+    result = ply_append(out, item_args, NULL);
+    Py_DECREF(item_args);
+    if (result == NULL) {
+	Py_DECREF(out);
+	return NULL;
+    }
+    if (PyTuple_Check(append_list) || PyList_Check(append_list)) {
+	for (Py_ssize_t i = 0; i < PySequence_Size(append_list); i++) {
+	    PyObject* item = PySequence_GetItem(append_list, i);
+	    if (item == NULL) {
+		Py_DECREF(out);
+		return NULL;
+	    }
+	    item_args = PyTuple_Pack(1, item);
+	    if (item_args == NULL) {
+		Py_DECREF(item);
+		Py_DECREF(out);
+		return NULL;
+	    }
+	    result = ply_append(out, item_args, NULL);
+	    Py_DECREF(item_args);
+	    Py_DECREF(item);
+	    if (result == NULL) {
+		Py_DECREF(out);
+		return NULL;
+	    }
+	    Py_DECREF(result);
+	}
+    } else {
+	item_args = PyTuple_Pack(1, append_list);
+	if (item_args == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	result = ply_append(out, item_args, NULL);
+	Py_DECREF(item_args);
+	if (result == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+    }
+    return out;
 }
 
 static PyObject* ply_items(PyObject* self, PyObject*, PyObject*) {
@@ -1346,6 +1463,9 @@ static PyMethodDef objwavefront_methods[] = {
     {"append", (PyCFunction) objwavefront_append,
      METH_VARARGS,
      "Append another 3D structure."},
+    {"merge", (PyCFunction) objwavefront_merge,
+     METH_VARARGS,
+     "Merge this structure with one or more other 3D structures and return the result."},
     {"items", (PyCFunction) objwavefront_items,
      METH_NOARGS,
      "Get the dict-like list of items in the structure."},
@@ -1753,14 +1873,36 @@ static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObj
 			Py_DECREF(out);
 			return NULL;
 		    }
-		    if (PyDict_SetItemString(item, p->first.c_str(), ival) < 0) {
+		    if (elementType == "#") {
+			PyObject* sep = PyUnicode_FromString(" ");
+			if (sep == NULL) {
+			    Py_DECREF(ival);
+			    Py_DECREF(item);
+			    Py_DECREF(val);
+			    Py_DECREF(out);
+			    return NULL;
+			}
+			PyObject* joined = PyUnicode_Join(sep, ival);
+			Py_DECREF(sep);
 			Py_DECREF(ival);
+			if (joined == NULL) {
+			    Py_DECREF(item);
+			    Py_DECREF(val);
+			    Py_DECREF(out);
+			    return NULL;
+			}
 			Py_DECREF(item);
-			Py_DECREF(val);
-			Py_DECREF(out);
-			return NULL;
+			item = joined;
+		    } else {
+			if (PyDict_SetItemString(item, p->first.c_str(), ival) < 0) {
+			    Py_DECREF(ival);
+			    Py_DECREF(item);
+			    Py_DECREF(val);
+			    Py_DECREF(out);
+			    return NULL;
+			}
+			Py_DECREF(ival);
 		    }
-		    Py_DECREF(ival);
 		}
 		if (PyList_SetItem(val, i, item) < 0) {
 		    Py_DECREF(item);
@@ -2024,6 +2166,37 @@ static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObj
 		    PyErr_SetString(geom_error, "New ObjWavefront element is invalid");
 		    return NULL;
 		}
+	    } else if (PyUnicode_Check(item)) {
+		ObjElement* new_element = v->obj->add_element(name);
+		if (!new_element) {
+		    PyErr_SetString(geom_error, "Error adding element to ObjWavefront instance");
+		    return NULL;
+		}
+		if (obj_alias2base(name) == "#") {
+		    PyObject* comments = PyUnicode_Split(item, NULL, -1);
+		    if (comments == NULL)
+			return NULL;
+		    std::vector<std::string> commentsS;
+		    for (Py_ssize_t i = 0; i < PyList_Size(comments); i++) {
+			PyObject* iComment = PyList_GetItem(comments, i);
+			if (iComment == NULL) {
+			    Py_DECREF(comments);
+			    return NULL;
+			}
+			commentsS.push_back(PyUnicode_AsUTF8(iComment));
+		    }
+		    Py_DECREF(comments);
+		    if (!new_element->set_property(static_cast<size_t>(0), commentsS)) {
+			PyErr_SetString(geom_error, "Error setting ObjWavefront element property.");
+			return NULL;
+		    }
+		} else {
+		    std::string iComment(PyUnicode_AsUTF8(item));
+		    if (!new_element->set_property(static_cast<size_t>(0), iComment)) {
+			PyErr_SetString(geom_error, "Error setting ObjWavefront element property.");
+			return NULL;
+		    }
+		}
 	    } else {
 		PyErr_SetString(PyExc_TypeError, "ObjWavefront elements must be lists, integers, or floats");
 		return NULL;
@@ -2189,6 +2362,72 @@ static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject* k
 	return NULL;
     }
     Py_RETURN_NONE;
+}
+
+
+static PyObject* objwavefront_merge(PyObject* self, PyObject* args, PyObject* kwargs) {
+    PyObject* tmp_args = PyTuple_New(0);
+    if (tmp_args == NULL)
+	return NULL;
+    PyObject* type = (PyObject*)self->ob_type;
+    PyObject* out = PyObject_Call(type, tmp_args, NULL);
+    Py_DECREF(tmp_args);
+    if (out == NULL)
+	return NULL;
+    PyObject* append_list = NULL;
+    if (PyTuple_Size(args) == 1) {
+	append_list = PyTuple_GetItem(args, 0);
+    } else {
+	append_list = args;
+    }
+    PyObject* result = NULL;
+    PyObject* item_args = PyTuple_Pack(1, self);
+    if (item_args == NULL) {
+	Py_DECREF(out);
+	return NULL;
+    }
+    result = objwavefront_append(out, item_args, NULL);
+    Py_DECREF(item_args);
+    if (result == NULL) {
+	Py_DECREF(out);
+	return NULL;
+    }
+    if (PyTuple_Check(append_list) || PyList_Check(append_list)) {
+	for (Py_ssize_t i = 0; i < PySequence_Size(append_list); i++) {
+	    PyObject* item = PySequence_GetItem(append_list, i);
+	    if (item == NULL) {
+		Py_DECREF(out);
+		return NULL;
+	    }
+	    item_args = PyTuple_Pack(1, item);
+	    if (item_args == NULL) {
+		Py_DECREF(item);
+		Py_DECREF(out);
+		return NULL;
+	    }
+	    result = objwavefront_append(out, item_args, NULL);
+	    Py_DECREF(item_args);
+	    Py_DECREF(item);
+	    if (result == NULL) {
+		Py_DECREF(out);
+		return NULL;
+	    }
+	    Py_DECREF(result);
+	}
+    } else {
+	item_args = PyTuple_Pack(1, append_list);
+	if (item_args == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+	result = objwavefront_append(out, item_args, NULL);
+	Py_DECREF(item_args);
+	if (result == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
+    }
+    return out;
 }
 
 
