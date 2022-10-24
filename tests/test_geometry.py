@@ -44,8 +44,8 @@ def mesh_base():
 
     def wrapped_mesh_base(stack=1, obj=False):
         zero = 0
-        if obj:
-            zero = 1
+        # if obj:
+        #     zero = 1
         out = {'bounds': bounds}
         nvert = base['vertices'].shape[0]
         for k, v in base.items():
@@ -61,7 +61,11 @@ def mesh_base():
                 for _ in range(1, stack):
                     out[k] += base[k]
             elif k in ['comments']:
-                out[k] = stack * base['comments']
+                if obj:
+                    out[k] = stack * base['comments']
+                else:
+                    # Ply preserve unique set of comments
+                    out[k] = copy.deepcopy(base['comments'])
             else:
                 out[k] = np.vstack([base[k] for i in range(stack)])
         if obj:
@@ -78,8 +82,8 @@ def mesh_dict():
 
     def wrapped_mesh_dict(base, with_colors=False, obj=False):
         ignore = -1
-        if obj:
-            ignore = 0
+        # if obj:
+        #     ignore = 0
         out = {'vertices': [], 'edges': [], 'faces': [],
                'comments': base['comments']}
         # 'material': 'fake_material',
@@ -141,8 +145,8 @@ def mesh_args_factory(mesh_base, mesh_array, mesh_dict):
                      kwargs=[], as_array=False, as_list=False,
                      with_colors=False, stack=1, obj=False):
         zero = 0
-        if obj:
-            zero = 1
+        # if obj:
+        #     zero = 1
         base_ = mesh_base(stack=stack, obj=obj)
         mesh_array_ = mesh_array(base_, with_colors=with_colors)
         mesh_dict_ = mesh_dict(base_, with_colors=with_colors, obj=obj)
@@ -322,8 +326,8 @@ class TestPly:
         for k, v in zip(['vertex', 'face', 'edge'], args):
             dict_kwargs[k] = v
         z = cls.from_dict(dict_kwargs)
-        assert z == x
         assert z.as_dict() == y.as_dict()
+        assert z == x
         if args:
             np.testing.assert_array_equal(z.bounds[0], y.bounds[0])
             np.testing.assert_array_equal(z.bounds[1], y.bounds[1])
