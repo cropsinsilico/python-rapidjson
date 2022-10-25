@@ -80,3 +80,18 @@ def test_structured_array(dumps, loads):
     loaded = loads(dumped)
     assert type(loaded) is type(value) and loaded.dtype == value.dtype
     np.testing.assert_equal(loaded, value)
+
+
+def test_pandas(dumps, loads):
+    try:
+        import pandas as pd
+    except ImportError:
+        pytest.skip("requires pandas")
+    value = np.array([('Rex', 9, 81.0, b'red'), ('Fido', 3, 27.0, b'green')],
+                     dtype=[('name', 'U4'), ('age', 'i4'),
+                            ('weight', 'f4'), ('color', 'S5')])
+    value_pd = pd.DataFrame(value)
+    dumped = dumps(value_pd)
+    loaded = loads(dumped)
+    assert type(loaded) is type(value) and loaded.dtype == value.dtype
+    np.testing.assert_equal(loaded, value)
