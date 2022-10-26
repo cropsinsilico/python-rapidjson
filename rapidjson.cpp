@@ -2750,7 +2750,7 @@ PythonAccept(
         }
 	handler->Double(d);
     } else if (PyUnicode_Check(object)) {
-	std::cerr << "std unicode" << std::endl;
+	std::cerr << "std unicode: " << PyBytes_Check(object) << std::endl;
         Py_ssize_t l;
         const char* s = PyUnicode_AsUTF8AndSize(object, &l);
         if (s == NULL)
