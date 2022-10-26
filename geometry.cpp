@@ -453,9 +453,6 @@ static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwar
 	out = (PyObject*)PyArray_NewCopy((PyArrayObject*)tmp, NPY_CORDER); \
 	Py_DECREF(tmp)
 
-// #define CASE_ARRAY_NPY_(flag, type, npy_type)	\
-// 	case (p_flags
-	
 	if (elementSet->requires_double()) {
 	    GET_ARRAY(double, NPY_DOUBLE);
 	} else {
@@ -2905,7 +2902,7 @@ geom_module_exec(PyObject* m)
         return -1;
     }
 
-    geom_error = PyErr_NewException("rapidjson.GeometryError",
+    geom_error = PyErr_NewException("rapidjson.geometry.GeometryError",
 				    PyExc_ValueError, NULL);
     if (geom_error == NULL)
         return -1;
@@ -2927,11 +2924,11 @@ static struct PyModuleDef_Slot geom_slots[] = {
 
 static PyModuleDef geom_module = {
     PyModuleDef_HEAD_INIT,      /* m_base */
-    "geometry",                 /* m_name */
+    "rapidjson.geometry",       /* m_name */
     PyDoc_STR("Structures for handling 3D geometries."),
     0,                          /* m_size */
-    geom_functions,            /* m_methods */
-    geom_slots,                /* m_slots */
+    geom_functions,             /* m_methods */
+    geom_slots,                 /* m_slots */
     NULL,                       /* m_traverse */
     NULL,                       /* m_clear */
     NULL                        /* m_free */

@@ -1804,7 +1804,8 @@ struct PyHandler {
 	    }
 	    RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	    PyObject* arr = x->GetPythonObjectRaw();
-	    PyObject* units = PyUnicode_FromString(x->GetUnits().GetString());
+	    PyObject* units = PyUnicode_FromStringAndSize(x->GetUnits().GetString(),
+							  x->GetUnits().GetStringLength());
 	    if (arr != NULL && units != NULL) {
 		PyObject* args = PyTuple_Pack(2, arr, units);
 		if (args != NULL) {
@@ -5876,11 +5877,32 @@ add_submodule(PyObject* m, const char* cname, PyModuleDef* module_def) {
     // an object with just a name attribute.
     //
     // _imp.__spec__ is overridden by importlib._bootstrap._instal() anyway.
-    PyObject *attrs = Py_BuildValue("{sO}", "name", name);
-    if (attrs == NULL)
+// #ifdef _PyNamespace_New
+//     PyObject *attrs = Py_BuildValue("{sO}", "name", name);
+//     if (attrs == NULL)
+// 	return NULL;
+//     PyObject *spec = _PyNamespace_New(attrs);
+//     Py_DECREF(attrs);
+// #else
+    PyObject* importlib = PyImport_ImportModule("importlib");
+    if (importlib == NULL)
 	return NULL;
-    PyObject *spec = _PyNamespace_New(attrs);
-    Py_DECREF(attrs);
+    PyObject* machinery = PyObject_GetAttrString(importlib, "machinery");
+    Py_DECREF(importlib);
+    if (machinery == NULL)
+	return NULL;
+    PyObject* ModuleSpecCls = PyObject_GetAttrString(machinery, "ModuleSpec");
+    Py_DECREF(machinery);
+    if (ModuleSpecCls == NULL)
+	return NULL;
+    PyObject* args = PyTuple_Pack(2, name, Py_None);
+    if (args == NULL)
+	return NULL;
+    PyObject* spec = PyObject_Call(ModuleSpecCls, args, NULL);
+    Py_DECREF(ModuleSpecCls);
+    Py_DECREF(args);
+// #endif
+    Py_DECREF(name);
     if (spec == NULL)
 	return NULL;
     PyObject* submodule = PyModule_FromDefAndSpec(module_def, spec);

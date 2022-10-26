@@ -615,7 +615,7 @@ static PyMethodDef quantity_array_methods[] = {
 
 static PyGetSetDef quantity_array_properties[] = {
     {"units", quantity_array_units_get, quantity_array_units_set,
-     "The rapidjson.Units units for the quantity.", NULL},
+     "The rapidjson.units.Units units for the quantity.", NULL},
     {"value", quantity_array_value_get, quantity_array_value_set,
      "The quantity's value (in the current unit system)."},
     {NULL}
@@ -2562,7 +2562,7 @@ static struct PyModuleDef_Slot units_slots[] = {
 
 static PyModuleDef units_module = {
     PyModuleDef_HEAD_INIT,      /* m_base */
-    "units",                    /* m_name */
+    "rapidjson.units",          /* m_name */
     PyDoc_STR("Fast, simple units library developed for yggdrasil."),
     0,                          /* m_size */
     units_functions,            /* m_methods */
