@@ -848,6 +848,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* out = PyDict_New();
     if (out == NULL)
 	return NULL;
+    std::cerr << "before comment" << std::endl;
     if (v->ply->comments.size() > 0) {
 	PyObject* commentStr = PyUnicode_FromString("comment");
 	if (commentStr == NULL) {
@@ -873,6 +874,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 	}
 	Py_DECREF(comments);
     }
+    std::cerr << "after comment" << std::endl;
     for (std::vector<std::string>::const_iterator it = v->ply->element_order.begin(); it != v->ply->element_order.end(); it++) {
 	std::map<std::string,PlyElementSet>::const_iterator eit = v->ply->elements.find(*it);
 	if (eit == v->ply->elements.end()) continue;
@@ -1446,6 +1448,7 @@ static PyObject* ply__getstate__(PyObject* self, PyObject*, PyObject*) {
     PyObject* args = PyTuple_New(0);
     if (args == NULL)
 	return NULL;
+    std::cerr << "ply__getstate__" << std::endl;
     return ply_as_dict(self, args, NULL);
 }
 static PyObject* ply__setstate__(PyObject* self, PyObject* state) {

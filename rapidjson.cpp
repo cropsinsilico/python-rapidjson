@@ -2750,6 +2750,7 @@ PythonAccept(
         }
 	handler->Double(d);
     } else if (PyUnicode_Check(object)) {
+	std::cerr << "std unicode" << std::endl;
         Py_ssize_t l;
         const char* s = PyUnicode_AsUTF8AndSize(object, &l);
         if (s == NULL)
@@ -2758,6 +2759,7 @@ PythonAccept(
         handler->String(s, (SizeType) l, true);
     } else if (bytesMode == BM_UTF8
                && (PyBytes_Check(object) || PyByteArray_Check(object))) {
+	std::cerr << "std bytes" << std::endl;
         PyObject* unicodeObj = PyUnicode_FromEncodedObject(object, "utf-8", NULL);
 
         if (unicodeObj == NULL)
@@ -3274,6 +3276,7 @@ PythonAccept(
 	// PythonAccept
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value();
+	std::cerr << "SetPythonObjectRaw call " << std::endl;
 	bool ret = x->SetPythonObjectRaw(object, &allocator);
 	if (ret)
 	    ret = x->Accept(*handler);
@@ -3506,6 +3509,7 @@ dumps_internal(
             Py_DECREF(dr);
         }
     } else if (PyUnicode_Check(object)) {
+	std::cerr << "write unicode" << std::endl;
         Py_ssize_t l;
         const char* s = PyUnicode_AsUTF8AndSize(object, &l);
         if (s == NULL)
@@ -3514,6 +3518,7 @@ dumps_internal(
         writer->String(s, (SizeType) l);
     } else if (bytesMode == BM_UTF8
                && (PyBytes_Check(object) || PyByteArray_Check(object))) {
+	std::cerr << "write bytes" << std::endl;
         PyObject* unicodeObj = PyUnicode_FromEncodedObject(object, "utf-8", NULL);
 
         if (unicodeObj == NULL)
