@@ -3509,7 +3509,6 @@ dumps_internal(
             Py_DECREF(dr);
         }
     } else if (PyUnicode_Check(object)) {
-	std::cerr << "write unicode" << std::endl;
         Py_ssize_t l;
         const char* s = PyUnicode_AsUTF8AndSize(object, &l);
         if (s == NULL)
@@ -3518,7 +3517,6 @@ dumps_internal(
         writer->String(s, (SizeType) l);
     } else if (bytesMode == BM_UTF8
                && (PyBytes_Check(object) || PyByteArray_Check(object))) {
-	std::cerr << "write bytes" << std::endl;
         PyObject* unicodeObj = PyUnicode_FromEncodedObject(object, "utf-8", NULL);
 
         if (unicodeObj == NULL)
