@@ -944,27 +944,17 @@ static PyObject* quantity_array_str(PyObject* self) {
 }
 
 
-static PyObject* quantity_array_repr(PyObject* self) {
+static PyObject* quantity_array_repr_from_base(PyObject* self,
+					       PyObject* base_out) {
     QuantityArrayObject* v = (QuantityArrayObject*) self;
-    PyObject* view = PyArray_View((PyArrayObject*)self, NULL, &PyArray_Type);
-    if (view == NULL) {
-	return NULL;
-    }
-    PyObject* base_out = PyObject_Repr(view);
-    Py_DECREF(view);
-    if (base_out == NULL) {
-	return NULL;
-    }
     Py_ssize_t len = PyUnicode_GetLength(base_out);
     Py_ssize_t idx_paren = PyUnicode_FindChar(base_out, '(', 0, len, 1);
     std::string units = v->units->units->str();
     PyObject* out = NULL;
     if (idx_paren < 0) {
 	out = PyUnicode_FromFormat("%U %s", base_out, units.c_str());
-	Py_DECREF(base_out);
     } else {
 	PyObject* base_sub = PyUnicode_Substring(base_out, idx_paren, len - 1);
-	Py_DECREF(base_out);
 	if (base_sub == NULL) {
 	    return NULL;
 	}
@@ -988,8 +978,22 @@ static PyObject* quantity_array_repr(PyObject* self) {
 	else
 	    out = PyUnicode_FromFormat("%U%U, '%s')", cls_name, base_sub, units.c_str());
 	Py_DECREF(cls_name);
-	Py_DECREF(base_sub);
     }
+    return out;
+}
+
+static PyObject* quantity_array_repr(PyObject* self) {
+    PyObject* view = PyArray_View((PyArrayObject*)self, NULL, &PyArray_Type);
+    if (view == NULL) {
+	return NULL;
+    }
+    PyObject* base_out = PyObject_Repr(view);
+    Py_DECREF(view);
+    if (base_out == NULL) {
+	return NULL;
+    }
+    PyObject* out = quantity_array_repr_from_base(self, base_out);
+    Py_DECREF(base_out);
     return out;
 }
 
@@ -1854,6 +1858,8 @@ static PyObject* quantity_array__array_function__(PyObject* self, PyObject* c_ar
 	    }
 	    // fallback to numpy for error if shapes mismatch
 	}
+    } else if (func_nameS == "array_repr") {
+	// No units
     } else {
 	    PyErr_Format(units_error,
 			 "Array function '%s' not supported by rapidjson.units.QuantityArray", func_nameS.c_str());
@@ -1937,6 +1943,15 @@ static PyObject* quantity_array__array_function__(PyObject* self, PyObject* c_ar
 		goto cleanup;
 	    }
 	}
+    }
+    if (result != NULL && func_nameS == "array_repr") {
+	i0 = PyTuple_GetItem(args, 0);
+	if (i0 == NULL) {
+	    goto cleanup;
+	}
+	tmp = quantity_array_repr_from_base(i0, result);
+	Py_DECREF(result);
+	result = tmp;
     }
 cleanup:
     Py_XDECREF(result_type);

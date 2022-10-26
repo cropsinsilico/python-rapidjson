@@ -172,6 +172,7 @@ class TestQuantity:
     def test_str(self, x):
         print(str(x))
         print(repr(x))
+        print(np.array_repr(x))
 
     def test_format(self, x):
         print('{:f}'.format(x))
