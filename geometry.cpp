@@ -848,7 +848,6 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* out = PyDict_New();
     if (out == NULL)
 	return NULL;
-    std::cerr << "before comment" << std::endl;
     if (v->ply->comments.size() > 0) {
 	PyObject* commentStr = PyUnicode_FromString("comment");
 	if (commentStr == NULL) {
@@ -874,11 +873,9 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 	}
 	Py_DECREF(comments);
     }
-    std::cerr << "after comment" << std::endl;
     for (std::vector<std::string>::const_iterator it = v->ply->element_order.begin(); it != v->ply->element_order.end(); it++) {
 	std::map<std::string,PlyElementSet>::const_iterator eit = v->ply->elements.find(*it);
 	if (eit == v->ply->elements.end()) continue;
-	std::cerr << "as_dict: begin " << *it << std::endl;
 	PyObject* iargs = Py_BuildValue("(s)", it->c_str());
 	PyObject* val = ply_get_elements(self, iargs, kwargs);
 	Py_DECREF(iargs);
@@ -894,7 +891,6 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 	Py_DECREF(val);
 	// Colors
 	if (asArray && eit->second.colors.size() > 0) {
-	    std::cerr << "as array with colors" << std::endl;
 	    iargs = Py_BuildValue("(s)", it->c_str());
 	    val = ply_get_colors(self, iargs, kwargs);
 	    Py_DECREF(iargs);
@@ -911,7 +907,6 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 	    }
 	    Py_DECREF(val);
 	}
-	std::cerr << "as_dict: end " << *it << std::endl;
     }
     
     return out;
@@ -1448,7 +1443,6 @@ static PyObject* ply__getstate__(PyObject* self, PyObject*, PyObject*) {
     PyObject* args = PyTuple_New(0);
     if (args == NULL)
 	return NULL;
-    std::cerr << "ply__getstate__" << std::endl;
     return ply_as_dict(self, args, NULL);
 }
 static PyObject* ply__setstate__(PyObject* self, PyObject* state) {
