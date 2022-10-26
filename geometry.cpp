@@ -876,6 +876,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
     for (std::vector<std::string>::const_iterator it = v->ply->element_order.begin(); it != v->ply->element_order.end(); it++) {
 	std::map<std::string,PlyElementSet>::const_iterator eit = v->ply->elements.find(*it);
 	if (eit == v->ply->elements.end()) continue;
+	std::cerr << "as_dict: begin " << *it << std::endl;
 	PyObject* iargs = Py_BuildValue("(s)", it->c_str());
 	PyObject* val = ply_get_elements(self, iargs, kwargs);
 	Py_DECREF(iargs);
@@ -891,6 +892,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 	Py_DECREF(val);
 	// Colors
 	if (asArray && eit->second.colors.size() > 0) {
+	    std::cerr << "as array with colors" << std::endl;
 	    iargs = Py_BuildValue("(s)", it->c_str());
 	    val = ply_get_colors(self, iargs, kwargs);
 	    Py_DECREF(iargs);
@@ -907,6 +909,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 	    }
 	    Py_DECREF(val);
 	}
+	std::cerr << "as_dict: end " << *it << std::endl;
     }
     
     return out;
