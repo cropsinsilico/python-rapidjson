@@ -402,12 +402,13 @@ static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwar
         NULL
     };
     
-    
+
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|p:", (char**) kwlist,
 				     &elementType0, &asArray))
 	return NULL;
 
     std::string elementType(elementType0);
+    std::cerr << "ply_get_elements: " << elementType << std::endl;
 
     PlyObject* v = (PlyObject*) self;
 
@@ -460,106 +461,93 @@ static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwar
 	}
 #undef GET_ARRAY
     } else {
-	out = PyDict_New();
-	if (out == NULL)
+	out = PyList_New(elementSet->elements.size());
+	if (out == NULL) {
 	    return NULL;
-	{
-	    PyObject* val = PyList_New(elementSet->elements.size());
-	    if (val == NULL) {
+	}
+	Py_ssize_t i = 0;
+	for (std::vector<PlyElement>::const_iterator elit = elementSet->elements.begin(); elit != elementSet->elements.end(); elit++, i++) {
+	    PyObject* item = PyDict_New();
+	    if (item == NULL) {
 		Py_DECREF(out);
 		return NULL;
 	    }
-	    Py_ssize_t i = 0;
-	    for (std::vector<PlyElement>::const_iterator elit = elementSet->elements.begin(); elit != elementSet->elements.end(); elit++, i++) {
-		PyObject* item = PyDict_New();
-		if (item == NULL) {
-		    Py_DECREF(val);
-		    Py_DECREF(out);
-		    return NULL;
-		}
-		for (std::vector<std::string>::const_iterator p = elit->property_order.begin(); p != elit->property_order.end(); p++) {
-		    PyObject* ival = NULL;
-		    uint16_t p_flags = elit->flags(*p);
+	    for (std::vector<std::string>::const_iterator p = elit->property_order.begin(); p != elit->property_order.end(); p++) {
+		PyObject* ival = NULL;
+		uint16_t p_flags = elit->flags(*p);
 #define CASE_SCALAR_(dst, flag, type, method, ...)			\
-		    case (PlyElement::ElementType::flag): {		\
-			dst = method(elit->get_value_as<type>(__VA_ARGS__)); \
-			break;						\
-		    }
+		case (PlyElement::ElementType::flag): {			\
+		    dst = method(elit->get_value_as<type>(__VA_ARGS__)); \
+		    break;						\
+		}
 #define CASE_SCALAR_NPY_(dst, flag, type, npy_type, ...)		\
-		    case (PlyElement::ElementType::flag): {		\
-			PyArray_Descr* desc = PyArray_DescrNewFromType(npy_type); \
-			type svalue = elit->get_value_as<type>(__VA_ARGS__); \
-			dst = PyArray_Scalar(&svalue, desc, NULL);	\
-			break;						\
-		    }
+		case (PlyElement::ElementType::flag): {			\
+		    PyArray_Descr* desc = PyArray_DescrNewFromType(npy_type); \
+		    type svalue = elit->get_value_as<type>(__VA_ARGS__); \
+		    dst = PyArray_Scalar(&svalue, desc, NULL);		\
+		    break;						\
+		}
 #define CASES_SCALAR_NPY_(dst, flag, type, npy_type, ...)		\
-		    CASE_SCALAR_NPY_(dst, k ## flag ## 8Flag, type ## 8_t, NPY_ ## npy_type ## 8, __VA_ARGS__) \
-		    CASE_SCALAR_NPY_(dst, k ## flag ## 16Flag, type ## 16_t, NPY_ ## npy_type ## 16, __VA_ARGS__) \
-		    CASE_SCALAR_NPY_(dst, k ## flag ## 32Flag, type ## 32_t, NPY_ ## npy_type ## 32, __VA_ARGS__)
+		CASE_SCALAR_NPY_(dst, k ## flag ## 8Flag, type ## 8_t, NPY_ ## npy_type ## 8, __VA_ARGS__) \
+		CASE_SCALAR_NPY_(dst, k ## flag ## 16Flag, type ## 16_t, NPY_ ## npy_type ## 16, __VA_ARGS__) \
+		CASE_SCALAR_NPY_(dst, k ## flag ## 32Flag, type ## 32_t, NPY_ ## npy_type ## 32, __VA_ARGS__)
 #define SWITCH_SCALAR_(dst, ...)					\
-		    switch (p_flags) {					\
-			CASES_SCALAR_NPY_(dst, Int, int, INT, __VA_ARGS__) \
-			CASES_SCALAR_NPY_(dst, Uint, uint, UINT, __VA_ARGS__)\
-			CASE_SCALAR_NPY_(dst, kFloatFlag, float, NPY_FLOAT, __VA_ARGS__) \
-			CASE_SCALAR_(dst, kDoubleFlag, double, PyFloat_FromDouble, __VA_ARGS__) \
-		    default: {						\
-			dst = PyFloat_FromDouble(elit->get_value_as<double>(__VA_ARGS__)); \
-		    }							\
-		    }
-		    if (elit->is_vector(*p)) {
-			p_flags = (uint16_t)(p_flags & ~PlyElement::ElementType::kListFlag);
-			ival = PyList_New(elit->size());
-			if (ival != NULL) {
-			    for (size_t iProp = 0; iProp < elit->size(); iProp++) {
-				PyObject* iival = NULL;
-				SWITCH_SCALAR_(iival, *p, iProp)
-				if (iival == NULL) {
-				    Py_DECREF(ival);
-				    Py_DECREF(item);
-				    Py_DECREF(val);
-				    Py_DECREF(out);
-				    return NULL;
-				}
-				if (PyList_SetItem(ival, iProp, iival) < 0) {
-				    Py_DECREF(iival);
-				    Py_DECREF(ival);
-				    Py_DECREF(item);
-				    Py_DECREF(val);
-				    Py_DECREF(out);
-				    return NULL;
-				}
+		switch (p_flags) {					\
+		    CASES_SCALAR_NPY_(dst, Int, int, INT, __VA_ARGS__)	\
+		    CASES_SCALAR_NPY_(dst, Uint, uint, UINT, __VA_ARGS__) \
+		    CASE_SCALAR_NPY_(dst, kFloatFlag, float, NPY_FLOAT, __VA_ARGS__) \
+		    CASE_SCALAR_(dst, kDoubleFlag, double, PyFloat_FromDouble, __VA_ARGS__) \
+		default: {						\
+		    dst = PyFloat_FromDouble(elit->get_value_as<double>(__VA_ARGS__)); \
+		}							\
+		}
+		if (elit->is_vector(*p)) {
+		    p_flags = (uint16_t)(p_flags & ~PlyElement::ElementType::kListFlag);
+		    ival = PyList_New(elit->size());
+		    if (ival != NULL) {
+			for (size_t iProp = 0; iProp < elit->size(); iProp++) {
+			    PyObject* iival = NULL;
+			    SWITCH_SCALAR_(iival, *p, iProp)
+			    if (iival == NULL) {
+				Py_DECREF(ival);
+				Py_DECREF(item);
+				Py_DECREF(out);
+				return NULL;
+			    }
+			    if (PyList_SetItem(ival, iProp, iival) < 0) {
+				Py_DECREF(iival);
+				Py_DECREF(ival);
+				Py_DECREF(item);
+				Py_DECREF(out);
+				return NULL;
 			    }
 			}
-		    } else {
-			SWITCH_SCALAR_(ival, *p)
 		    }
+		} else {
+		    SWITCH_SCALAR_(ival, *p)
+		}
 #undef SWITCH_SCALAR_
 #undef CASES_SCALAR_NPY_
 #undef CASE_SCALAR_NPY_
 #undef CASE_SCALAR_
-		    if (ival == NULL) {
-			Py_DECREF(item);
-			Py_DECREF(val);
-			Py_DECREF(out);
-			return NULL;
-		    }
-		    if (PyDict_SetItemString(item, p->c_str(), ival) < 0) {
-			Py_DECREF(ival);
-			Py_DECREF(item);
-			Py_DECREF(val);
-			Py_DECREF(out);
-			return NULL;
-		    }
-		    Py_DECREF(ival);
-		}
-		if (PyList_SetItem(val, i, item) < 0) {
+		if (ival == NULL) {
 		    Py_DECREF(item);
-		    Py_DECREF(val);
 		    Py_DECREF(out);
 		    return NULL;
 		}
+		if (PyDict_SetItemString(item, p->c_str(), ival) < 0) {
+		    Py_DECREF(ival);
+		    Py_DECREF(item);
+		    Py_DECREF(out);
+		    return NULL;
+		}
+		Py_DECREF(ival);
 	    }
-	    out = val;
+	    if (PyList_SetItem(out, i, item) < 0) {
+		Py_DECREF(item);
+		Py_DECREF(out);
+		return NULL;
+	    }
 	}
     }
     
@@ -877,6 +865,10 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 	std::map<std::string,PlyElementSet>::const_iterator eit = v->ply->elements.find(*it);
 	if (eit == v->ply->elements.end()) continue;
 	PyObject* iargs = Py_BuildValue("(s)", it->c_str());
+	if (iargs == NULL) {
+	    Py_DECREF(out);
+	    return NULL;
+	}
 	PyObject* val = ply_get_elements(self, iargs, kwargs);
 	Py_DECREF(iargs);
 	if (val == NULL) {
