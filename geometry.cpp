@@ -409,7 +409,6 @@ static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwar
 	return NULL;
 
     std::string elementType(elementType0);
-    std::cerr << "ply_get_elements: " << elementType << std::endl;
 
     PlyObject* v = (PlyObject*) self;
 
@@ -838,7 +837,6 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
     if (out == NULL)
 	return NULL;
     if (v->ply->comments.size() > 0) {
-	std::cerr << "comments" << std::endl;
 	PyObject* commentStr = PyUnicode_FromString("comment");
 	if (commentStr == NULL) {
 	    Py_DECREF(out);
@@ -865,7 +863,6 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
     }
     if (v->ply->element_order.size() == 0)
 	return out;
-    std::cerr << "non comments: " << v->ply->element_order.size() << std::endl;
     for (std::vector<std::string>::const_iterator it = v->ply->element_order.begin(); it != v->ply->element_order.end(); it++) {
 	std::map<std::string,PlyElementSet>::const_iterator eit = v->ply->elements.find(*it);
 	if (eit == v->ply->elements.end()) continue;
