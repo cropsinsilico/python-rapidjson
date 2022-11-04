@@ -21,7 +21,7 @@ def test_invalid_schema():
 
 
 def test_invalid_json():
-    normalizer = rj.Normalizer('""')
+    normalizer = rj.Normalizer('{"type": "number"}')
     pytest.raises(rj.JSONDecodeError, normalizer, '')
     pytest.raises(rj.JSONDecodeError, normalizer, '"')
     pytest.raises(rj.JSONDecodeError, normalizer.normalize, '')
@@ -49,8 +49,8 @@ def test_invalid_json():
 ))
 def test_normalize(schema, json, normalized):
     normalizer = rj.Normalizer(schema)
-    assert(normalizer(json) == normalized)
-    assert(normalizer.normalize(json) == normalized)
+    assert normalizer(json) == normalized
+    assert normalizer.normalize(json) == normalized
     normalizer.validate(json)
 
 

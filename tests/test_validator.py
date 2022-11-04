@@ -16,7 +16,7 @@ def test_invalid_schema():
 
 
 def test_invalid_json():
-    validate = rj.Validator('""')
+    validate = rj.Validator('{"type": "number"}')
     pytest.raises(rj.JSONDecodeError, validate, '')
     pytest.raises(rj.JSONDecodeError, validate, '"')
     pytest.raises(rj.JSONDecodeError, validate.validate, '')
