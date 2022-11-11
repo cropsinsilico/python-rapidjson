@@ -46,12 +46,16 @@ def test_invalid_json():
                                   "subtype": "string",
                                   "precision": 5}]},
      ["hello"], [b"hello"]),
+    ({"type": "object", "required": ["a"],
+      "properties": {
+          "a": {"type": "boolean", "default": True}}},
+     {"a": True}, {"a": True}),
 ))
 def test_normalize(schema, json, normalized):
     normalizer = rj.Normalizer(schema)
     assert normalizer(json) == normalized
     assert normalizer.normalize(json) == normalized
-    normalizer.validate(json)
+    normalizer.validate(normalized)
 
 
 @pytest.mark.parametrize('schema,json,details', (
