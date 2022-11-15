@@ -23,6 +23,23 @@ def test_python_objects(dumps, loads, value_str, request):
     assert loaded == value and type(loaded) is type(value)
 
 
+@pytest.mark.parametrize(
+    'value_str,result', [
+        ('example_function', 'example_python:example_function'),
+        ('example_class', 'example_python:ExampleClass'),
+        ('example_instance', {'class': 'example_python:ExampleClass',
+                              'args': [1, 'b'],
+                              'kwargs': {'c': 2, 'd': 'd'}}),
+    ])
+def test_python_objects_as_pure_python(dumps, loads, value_str, result,
+                                       request):
+    value = request.getfixturevalue(value_str)
+    dumped = dumps(value, yggdrasil_mode=rj.YM_READABLE)
+    loaded = loads(dumped)
+    assert loaded == result
+    assert rj.as_pure_json(value) == result
+
+
 @pytest.mark.parametrize('schema', (
     '{ "type": "instance", "class": "-YGG-eyJ0eXBlIjoiY2xhc3MifQ=='
     '-YGG-ZXhhbXBsZV9weXRob246RXhhbXBsZUNsYXNz-YGG-" }',

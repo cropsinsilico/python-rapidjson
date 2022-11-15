@@ -217,6 +217,13 @@ enum MappingMode {
 };
 
 
+enum YggdrasilMode {
+    YM_BASE64 = 0,              // Default, yggdrasil extension types are base 64 encoded
+    YM_READABLE = 1<<0,         // Encode yggdrasil extension types in a readable format
+    YM_MAX = 1<<1
+};
+
+
 //////////////////////////
 // Forward declarations //
 //////////////////////////
@@ -236,14 +243,15 @@ static PyObject* do_encode(PyObject* value, PyObject* defaultFn, bool ensureAsci
                            unsigned writeMode, char indentChar, unsigned indentCount,
                            unsigned numberMode, unsigned datetimeMode,
                            unsigned uuidMode, unsigned bytesMode,
-                           unsigned iterableMode, unsigned mappingMode);
+                           unsigned iterableMode, unsigned mappingMode,
+			   unsigned yggdrasilMode);
 static PyObject* do_stream_encode(PyObject* value, PyObject* stream, size_t chunkSize,
                                   PyObject* defaultFn, bool ensureAscii,
                                   unsigned writeMode, char indentChar,
                                   unsigned indentCount, unsigned numberMode,
                                   unsigned datetimeMode, unsigned uuidMode,
                                   unsigned bytesMode, unsigned iterableMode,
-                                  unsigned mappingMode);
+                                  unsigned mappingMode, unsigned yggdrasilMode);
 static PyObject* encoder_call(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
 
@@ -766,6 +774,25 @@ accept_mapping_mode_arg(PyObject* arg, unsigned &mapping_mode)
 }
 
 static bool
+accept_yggdrasil_mode_arg(PyObject* arg, unsigned &yggdrasil_mode)
+{
+    if (arg != NULL && arg != Py_None) {
+        if (PyLong_Check(arg)) {
+            long mode = PyLong_AsLong(arg);
+            if (mode < 0 || mode >= YM_MAX) {
+                PyErr_SetString(PyExc_ValueError, "Invalid yggdrasil_mode, out of range");
+                return false;
+            }
+            yggdrasil_mode = (unsigned) mode;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "yggdrasil_mode must be a non-negative int");
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool
 accept_chunk_size_arg(PyObject* arg, size_t &chunk_size)
 {
     if (arg != NULL && arg != Py_None) {
@@ -1017,6 +1044,7 @@ float_from_string(const char* s, Py_ssize_t len)
 
 
 struct PyHandler {
+    typedef char Ch;
     PyObject* decoderStartObject;
     PyObject* decoderEndObject;
     PyObject* decoderEndArray;
@@ -4068,6 +4096,7 @@ typedef struct {
     unsigned bytesMode;
     unsigned iterableMode;
     unsigned mappingMode;
+    unsigned yggdrasilMode;
 } EncoderObject;
 
 
@@ -4076,7 +4105,7 @@ PyDoc_STRVAR(dumps_docstring,
              " indent=4, default=None, sort_keys=False, number_mode=None,"
              " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
              " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
-             " allow_nan=True)\n"
+             " yggdrasil_mode=YM_BASE64, allow_nan=True)\n"
              "\n"
              "Encode a Python object into a JSON string.");
 
@@ -4104,6 +4133,8 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
     unsigned mappingMode = MM_ANY_MAPPING;
+    PyObject* yggdrasilModeObj = NULL;
+    unsigned yggdrasilMode = YM_BASE64;
     char indentChar = ' ';
     unsigned indentCount = 4;
     static char const* kwlist[] = {
@@ -4120,6 +4151,7 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
         "write_mode",
         "iterable_mode",
         "mapping_mode",
+	"yggdrasil_mode",
 
         /* compatibility with stdlib json */
         "allow_nan",
@@ -4130,7 +4162,7 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
     int sortKeys = false;
     int allowNan = -1;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ppOOpOOOOOOOp:rapidjson.dumps",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$ppOOpOOOOOOOOp:rapidjson.dumps",
                                      (char**) kwlist,
                                      &value,
                                      &skipKeys,
@@ -4145,6 +4177,7 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
                                      &writeModeObj,
                                      &iterableModeObj,
                                      &mappingModeObj,
+				     &yggdrasilModeObj,
                                      &allowNan))
         return NULL;
 
@@ -4181,6 +4214,9 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
     if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
         return NULL;
 
+    if (!accept_yggdrasil_mode_arg(yggdrasilModeObj, yggdrasilMode))
+        return NULL;
+
     if (skipKeys)
         mappingMode |= MM_SKIP_NON_STRING_KEYS;
 
@@ -4189,7 +4225,7 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
 
     return do_encode(value, defaultFn, ensureAscii ? true : false, writeMode, indentChar,
                      indentCount, numberMode, datetimeMode, uuidMode, bytesMode,
-                     iterableMode, mappingMode);
+                     iterableMode, mappingMode, yggdrasilMode);
 }
 
 
@@ -4198,7 +4234,7 @@ PyDoc_STRVAR(dump_docstring,
              " write_mode=WM_COMPACT, indent=4, default=None, sort_keys=False,"
              " number_mode=None, datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
              " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
-             " chunk_size=65536, allow_nan=True)\n"
+             " yggdrasil_mode=YM_BASE64, chunk_size=65536, allow_nan=True)\n"
              "\n"
              "Encode a Python object into a JSON stream.");
 
@@ -4227,6 +4263,8 @@ dump(PyObject* self, PyObject* args, PyObject* kwargs)
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
     unsigned mappingMode = MM_ANY_MAPPING;
+    PyObject* yggdrasilModeObj = NULL;
+    unsigned yggdrasilMode = YM_BASE64;
     char indentChar = ' ';
     unsigned indentCount = 4;
     PyObject* chunkSizeObj = NULL;
@@ -4248,6 +4286,7 @@ dump(PyObject* self, PyObject* args, PyObject* kwargs)
         "write_mode",
         "iterable_mode",
         "mapping_mode",
+	"yggdrasil_mode",
 
         /* compatibility with stdlib json */
         "allow_nan",
@@ -4257,7 +4296,7 @@ dump(PyObject* self, PyObject* args, PyObject* kwargs)
     int skipKeys = false;
     int sortKeys = false;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|$ppOOpOOOOOOOOp:rapidjson.dump",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|$ppOOpOOOOOOOOOp:rapidjson.dump",
                                      (char**) kwlist,
                                      &value,
                                      &stream,
@@ -4274,6 +4313,7 @@ dump(PyObject* self, PyObject* args, PyObject* kwargs)
                                      &writeModeObj,
                                      &iterableModeObj,
                                      &mappingModeObj,
+				     &yggdrasilModeObj,
                                      &allowNan))
         return NULL;
 
@@ -4313,6 +4353,9 @@ dump(PyObject* self, PyObject* args, PyObject* kwargs)
     if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
         return NULL;
 
+    if (!accept_yggdrasil_mode_arg(yggdrasilModeObj, yggdrasilMode))
+        return NULL;
+
     if (skipKeys)
         mappingMode |= MM_SKIP_NON_STRING_KEYS;
 
@@ -4322,7 +4365,7 @@ dump(PyObject* self, PyObject* args, PyObject* kwargs)
     return do_stream_encode(value, stream, chunkSize, defaultFn,
                             ensureAscii ? true : false, writeMode, indentChar,
                             indentCount, numberMode, datetimeMode, uuidMode, bytesMode,
-                            iterableMode, mappingMode);
+                            iterableMode, mappingMode, yggdrasilMode);
 }
 
 
@@ -4330,7 +4373,7 @@ PyDoc_STRVAR(encoder_doc,
              "Encoder(skip_invalid_keys=False, ensure_ascii=True, write_mode=WM_COMPACT,"
              " indent=4, sort_keys=False, number_mode=None, datetime_mode=None,"
              " uuid_mode=None, bytes_mode=None, iterable_mode=IM_ANY_ITERABLE,"
-             " mapping_mode=MM_ANY_MAPPING)\n\n"
+             " mapping_mode=MM_ANY_MAPPING, yggdrasil_mode=YM_BASE64)\n\n"
              "Create and return a new Encoder instance.");
 
 
@@ -4365,6 +4408,9 @@ static PyMemberDef encoder_members[] = {
     {"mapping_mode",
      T_UINT, offsetof(EncoderObject, mappingMode), READONLY,
      "Whether mapping values other than dicts shall be encoded as JSON objects or not."},
+    {"yggdrasil_mode",
+     T_UINT, offsetof(EncoderObject, yggdrasilMode), READONLY,
+     "Whether yggdrasil extension values shall be encoded in base64 or not."},
     {NULL}
 };
 
@@ -4447,7 +4493,7 @@ static PyTypeObject Encoder_Type = {
                     uuidMode,                           \
                     bytesMode,                          \
                     iterableMode,                       \
-                    mappingMode)                        \
+                    mappingMode)			\
      ? PyUnicode_FromString(buf.GetString()) : NULL)
 
 
@@ -4455,16 +4501,22 @@ static PyObject*
 do_encode(PyObject* value, PyObject* defaultFn, bool ensureAscii, unsigned writeMode,
           char indentChar, unsigned indentCount, unsigned numberMode,
           unsigned datetimeMode, unsigned uuidMode, unsigned bytesMode,
-          unsigned iterableMode, unsigned mappingMode)
+          unsigned iterableMode, unsigned mappingMode, unsigned yggdrasilMode)
 {
     if (writeMode == WM_COMPACT) {
         if (ensureAscii) {
             GenericStringBuffer<ASCII<> > buf;
             Writer<GenericStringBuffer<ASCII<> >, UTF8<>, ASCII<> > writer(buf);
+	    if (yggdrasilMode & YM_READABLE) {
+		writer.SetYggdrasilMode(true);
+	    }
             return DUMPS_INTERNAL_CALL;
         } else {
             StringBuffer buf;
             Writer<StringBuffer> writer(buf);
+	    if (yggdrasilMode & YM_READABLE) {
+		writer.SetYggdrasilMode(true);
+	    }
             return DUMPS_INTERNAL_CALL;
         }
     } else if (ensureAscii) {
@@ -4474,6 +4526,9 @@ do_encode(PyObject* value, PyObject* defaultFn, bool ensureAscii, unsigned write
         if (writeMode & WM_SINGLE_LINE_ARRAY) {
             writer.SetFormatOptions(kFormatSingleLineArray);
         }
+	if (yggdrasilMode & YM_READABLE) {
+	    writer.SetYggdrasilMode(true);
+	}
         return DUMPS_INTERNAL_CALL;
     } else {
         StringBuffer buf;
@@ -4482,6 +4537,9 @@ do_encode(PyObject* value, PyObject* defaultFn, bool ensureAscii, unsigned write
         if (writeMode & WM_SINGLE_LINE_ARRAY) {
             writer.SetFormatOptions(kFormatSingleLineArray);
         }
+	if (yggdrasilMode & YM_READABLE) {
+	    writer.SetYggdrasilMode(true);
+	}
         return DUMPS_INTERNAL_CALL;
     }
 }
@@ -4496,7 +4554,7 @@ do_encode(PyObject* value, PyObject* defaultFn, bool ensureAscii, unsigned write
                     uuidMode,                   \
                     bytesMode,                  \
                     iterableMode,               \
-                    mappingMode)                \
+                    mappingMode)		\
      ? Py_INCREF(Py_None), Py_None : NULL)
 
 
@@ -4505,16 +4563,22 @@ do_stream_encode(PyObject* value, PyObject* stream, size_t chunkSize, PyObject* 
                  bool ensureAscii, unsigned writeMode, char indentChar,
                  unsigned indentCount, unsigned numberMode, unsigned datetimeMode,
                  unsigned uuidMode, unsigned bytesMode, unsigned iterableMode,
-                 unsigned mappingMode)
+                 unsigned mappingMode, unsigned yggdrasilMode)
 {
     PyWriteStreamWrapper os(stream, chunkSize);
 
     if (writeMode == WM_COMPACT) {
         if (ensureAscii) {
             Writer<PyWriteStreamWrapper, UTF8<>, ASCII<> > writer(os);
+	    if (yggdrasilMode & YM_READABLE) {
+		writer.SetYggdrasilMode(true);
+	    }
             return DUMP_INTERNAL_CALL;
         } else {
             Writer<PyWriteStreamWrapper> writer(os);
+	    if (yggdrasilMode & YM_READABLE) {
+		writer.SetYggdrasilMode(true);
+	    }
             return DUMP_INTERNAL_CALL;
         }
     } else if (ensureAscii) {
@@ -4523,6 +4587,9 @@ do_stream_encode(PyObject* value, PyObject* stream, size_t chunkSize, PyObject* 
         if (writeMode & WM_SINGLE_LINE_ARRAY) {
             writer.SetFormatOptions(kFormatSingleLineArray);
         }
+	if (yggdrasilMode & YM_READABLE) {
+	    writer.SetYggdrasilMode(true);
+	}
         return DUMP_INTERNAL_CALL;
     } else {
         PrettyWriter<PyWriteStreamWrapper> writer(os);
@@ -4530,6 +4597,9 @@ do_stream_encode(PyObject* value, PyObject* stream, size_t chunkSize, PyObject* 
         if (writeMode & WM_SINGLE_LINE_ARRAY) {
             writer.SetFormatOptions(kFormatSingleLineArray);
         }
+	if (yggdrasilMode & YM_READABLE) {
+	    writer.SetYggdrasilMode(true);
+	}
         return DUMP_INTERNAL_CALL;
     }
 }
@@ -4576,7 +4646,8 @@ encoder_call(PyObject* self, PyObject* args, PyObject* kwargs)
         result = do_stream_encode(value, stream, chunkSize, defaultFn, e->ensureAscii,
                                   e->writeMode, e->indentChar, e->indentCount,
                                   e->numberMode, e->datetimeMode, e->uuidMode,
-                                  e->bytesMode, e->iterableMode, e->mappingMode);
+                                  e->bytesMode, e->iterableMode, e->mappingMode,
+				  e->yggdrasilMode);
     } else {
         if (PyObject_HasAttr(self, default_name)) {
             defaultFn = PyObject_GetAttr(self, default_name);
@@ -4584,7 +4655,8 @@ encoder_call(PyObject* self, PyObject* args, PyObject* kwargs)
 
         result = do_encode(value, defaultFn, e->ensureAscii, e->writeMode, e->indentChar,
                            e->indentCount, e->numberMode, e->datetimeMode, e->uuidMode,
-                           e->bytesMode, e->iterableMode, e->mappingMode);
+                           e->bytesMode, e->iterableMode, e->mappingMode,
+			   e->yggdrasilMode);
     }
 
     if (defaultFn != NULL)
@@ -4614,6 +4686,8 @@ encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
     unsigned mappingMode = MM_ANY_MAPPING;
+    PyObject* yggdrasilModeObj = NULL;
+    unsigned yggdrasilMode = YM_BASE64;
     char indentChar = ' ';
     unsigned indentCount = 4;
     static char const* kwlist[] = {
@@ -4628,12 +4702,13 @@ encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
         "write_mode",
         "iterable_mode",
         "mapping_mode",
+	"yggdrasil_mode",
         NULL
     };
     int skipInvalidKeys = false;
     int sortKeys = false;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ppOpOOOOOOO:Encoder",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|ppOpOOOOOOOO:Encoder",
                                      (char**) kwlist,
                                      &skipInvalidKeys,
                                      &ensureAscii,
@@ -4645,7 +4720,8 @@ encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
                                      &bytesModeObj,
                                      &writeModeObj,
                                      &iterableModeObj,
-                                     &mappingModeObj))
+                                     &mappingModeObj,
+				     &yggdrasilModeObj))
         return NULL;
 
     if (!accept_indent_arg(indent, writeMode, indentCount, indentChar))
@@ -4672,6 +4748,9 @@ encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
     if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
         return NULL;
 
+    if (!accept_yggdrasil_mode_arg(yggdrasilModeObj, yggdrasilMode))
+	return NULL;
+
     if (skipInvalidKeys)
         mappingMode |= MM_SKIP_NON_STRING_KEYS;
 
@@ -4692,6 +4771,7 @@ encoder_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
     e->bytesMode = bytesMode;
     e->iterableMode = iterableMode;
     e->mappingMode = mappingMode;
+    e->yggdrasilMode = yggdrasilMode;
 
     return (PyObject*) e;
 }
@@ -5490,6 +5570,105 @@ compare_schemas(PyObject* self, PyObject* args, PyObject* kwargs)
 }
 
 
+PyDoc_STRVAR(as_pure_json_docstring,
+	     "as_pure_json(json)\n"
+	     "\n"
+	     "Convert a JSON document containing yggdrasil extension values to pure JSON.");
+
+
+static PyObject*
+as_pure_json(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject* jsonObject = NULL;
+    PyObject* decoderObject = NULL;
+    PyObject* objectHook = NULL;
+    PyObject* numberModeObj = NULL;
+    unsigned numberMode = NM_NAN;
+    PyObject* datetimeModeObj = NULL;
+    unsigned datetimeMode = DM_NONE;
+    PyObject* uuidModeObj = NULL;
+    unsigned uuidMode = UM_NONE;
+    PyObject* bytesModeObj = NULL;
+    unsigned bytesMode = BM_SCALAR;
+    PyObject* iterableModeObj = NULL;
+    unsigned iterableMode = IM_ANY_ITERABLE;
+    PyObject* mappingModeObj = NULL;
+    unsigned mappingMode = MM_ANY_MAPPING;
+    int allowNan = -1;
+    static char const* kwlist[] = {
+	"json",
+	"decoder",
+        "object_hook",
+        "number_mode",
+        "datetime_mode",
+        "uuid_mode",
+        "bytes_mode",
+        "iterable_mode",
+        "mapping_mode",
+
+        /* compatibility with stdlib json */
+        "allow_nan",
+
+	NULL
+    };
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOOOOp:as_pure_json",
+				     (char**) kwlist,
+				     &jsonObject,
+				     &decoderObject,
+                                     &objectHook,
+                                     &numberModeObj,
+                                     &datetimeModeObj,
+                                     &uuidModeObj,
+				     &bytesModeObj,
+				     &iterableModeObj,
+				     &mappingModeObj,
+                                     &allowNan))
+	return NULL;
+    
+    if (objectHook && !PyCallable_Check(objectHook)) {
+        if (objectHook == Py_None) {
+            objectHook = NULL;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "object_hook is not callable");
+            return NULL;
+        }
+    }
+
+    if (!accept_number_mode_arg(numberModeObj, allowNan, numberMode))
+        return NULL;
+
+    if (!accept_datetime_mode_arg(datetimeModeObj, datetimeMode))
+        return NULL;
+
+    if (!accept_uuid_mode_arg(uuidModeObj, uuidMode))
+        return NULL;
+
+    if (!accept_bytes_mode_arg(bytesModeObj, bytesMode))
+        return NULL;
+
+    if (!accept_iterable_mode_arg(iterableModeObj, iterableMode))
+        return NULL;
+
+    if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
+        return NULL;
+
+    Document d;
+    bool isEmptyString = false;
+    if (!python2document(jsonObject, d, numberMode, datetimeMode,
+			 uuidMode, bytesMode, iterableMode,
+			 mappingMode, 0, false, false, &isEmptyString))
+	return NULL;
+
+    PyHandler handler(decoderObject, objectHook, datetimeMode, uuidMode,
+		      numberMode);
+    JSONCoreWrapper<PyHandler> wrapped(handler);
+    if (!d.Accept(wrapped)) {
+	return NULL;
+    }
+    return handler.root;
+}
+
+
 ////////////////
 // Normalizer //
 ////////////////
@@ -5978,6 +6157,9 @@ static PyMethodDef functions[] = {
     {"compare_schemas", (PyCFunction) compare_schemas,
      METH_VARARGS | METH_KEYWORDS,
      compare_schemas_docstring},
+    {"as_pure_json", (PyCFunction) as_pure_json,
+     METH_VARARGS | METH_KEYWORDS,
+     as_pure_json_docstring},
     {NULL, NULL, 0, NULL} /* sentinel */
 };
 
@@ -6155,6 +6337,9 @@ module_exec(PyObject* m)
                                    MM_COERCE_KEYS_TO_STRINGS)
         || PyModule_AddIntConstant(m, "MM_SKIP_NON_STRING_KEYS", MM_SKIP_NON_STRING_KEYS)
         || PyModule_AddIntConstant(m, "MM_SORT_KEYS", MM_SORT_KEYS)
+	
+	|| PyModule_AddIntConstant(m, "YM_BASE64", YM_BASE64)
+	|| PyModule_AddIntConstant(m, "YM_READABLE", YM_READABLE)
 
         || PyModule_AddStringConstant(m, "__version__",
                                       STRINGIFY(PYTHON_RAPIDJSON_VERSION))
