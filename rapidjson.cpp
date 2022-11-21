@@ -63,6 +63,7 @@ static PyObject* normalization_error = NULL;
 static PyObject* normalization_warning = NULL;
 static PyObject* decode_error = NULL;
 static PyObject* comparison_error = NULL;
+static PyObject* generate_error = NULL;
 
 
 /* These are the names of often used methods or literal values, interned in the module
@@ -220,7 +221,8 @@ enum MappingMode {
 enum YggdrasilMode {
     YM_BASE64 = 0,              // Default, yggdrasil extension types are base 64 encoded
     YM_READABLE = 1<<0,         // Encode yggdrasil extension types in a readable format
-    YM_MAX = 1<<1
+    YM_PICKLE = 1<<2,           // Pickle unsupported Python objects
+    YM_MAX = 1<<3
 };
 
 
@@ -261,6 +263,7 @@ static void validator_dealloc(PyObject* self);
 static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* validator_validate(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* validator_generate_data(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs);
 
 static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwargs);
@@ -268,6 +271,7 @@ static void normalizer_dealloc(PyObject* self);
 static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* normalizer_compare(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* normalizer_generate_data(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* normalizer_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs);
 static PyObject* normalizer_normalize(PyObject* self, PyObject* args, PyObject* kwargs);
 
@@ -2707,13 +2711,15 @@ PythonAccept(
     unsigned uuidMode,
     unsigned bytesMode,
     unsigned iterableMode,
-    unsigned mappingMode)
+    unsigned mappingMode,
+    unsigned yggdrasilMode)
 {
     int is_decimal;
 
 #define RECURSE(v) PythonAccept(handler, v,				\
 				numberMode, datetimeMode, uuidMode,	\
-				bytesMode, iterableMode, mappingMode)
+				bytesMode, iterableMode, mappingMode,	\
+				yggdrasilMode)
 
 #define ASSERT_VALID_SIZE(l) do {                                       \
     if (l < 0 || l > UINT_MAX) {                                        \
@@ -3302,7 +3308,8 @@ PythonAccept(
 	// PythonAccept
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value();
-	bool ret = x->SetPythonObjectRaw(object, &allocator);
+	bool ret = x->SetPythonObjectRaw(object, &allocator, false,
+					 (yggdrasilMode & YM_PICKLE));
 	if (ret)
 	    ret = x->Accept(*handler);
 	delete x;
@@ -3329,6 +3336,7 @@ static bool python2document(PyObject* jsonObject, Document& d,
 			    unsigned bytesMode,
 			    unsigned iterableMode,
 			    unsigned mappingMode,
+			    unsigned yggdrasilMode,
 			    unsigned expectsString,
 			    bool forSchema = false,
 			    bool forceObject = false,
@@ -3370,7 +3378,7 @@ static bool python2document(PyObject* jsonObject, Document& d,
     if (jsonStr == NULL) {
         error = (!PythonAccept(&d, jsonObject, numberMode, datetimeMode,
 			       uuidMode, bytesMode, iterableMode,
-			       mappingMode));
+			       mappingMode, yggdrasilMode));
 	d.FinalizeFromStack();
 	if (error)
 	    return false;
@@ -3398,13 +3406,15 @@ dumps_internal(
     unsigned uuidMode,
     unsigned bytesMode,
     unsigned iterableMode,
-    unsigned mappingMode)
+    unsigned mappingMode,
+    unsigned yggdrasilMode)
 {
     int is_decimal;
 
 #define RECURSE(v) dumps_internal(writer, v, defaultFn,                 \
                                   numberMode, datetimeMode, uuidMode,   \
-                                  bytesMode, iterableMode, mappingMode)
+                                  bytesMode, iterableMode, mappingMode,	\
+				  yggdrasilMode)
 
 #define ASSERT_VALID_SIZE(l) do {                                       \
     if (l < 0 || l > UINT_MAX) {                                        \
@@ -4056,7 +4066,7 @@ dumps_internal(
 	    PyObject *type, *value, *traceback;
 	    PyErr_Fetch(&type, &value, &traceback);
 	    bool r = PythonAccept(writer, object, numberMode, datetimeMode, uuidMode,
-				  bytesMode, iterableMode, mappingMode);
+				  bytesMode, iterableMode, mappingMode, yggdrasilMode);
 	    PyErr_Restore(type, value, traceback);
 	    if (r)
 		PyErr_Clear();
@@ -4073,7 +4083,7 @@ dumps_internal(
             return false;
     } else {
 	return PythonAccept(writer, object, numberMode, datetimeMode, uuidMode,
-			    bytesMode, iterableMode, mappingMode);
+			    bytesMode, iterableMode, mappingMode, yggdrasilMode);
     }
 
     // Catch possible error raised in associated stream operations
@@ -4493,7 +4503,8 @@ static PyTypeObject Encoder_Type = {
                     uuidMode,                           \
                     bytesMode,                          \
                     iterableMode,                       \
-                    mappingMode)			\
+                    mappingMode,				\
+		    yggdrasilMode)				\
      ? PyUnicode_FromString(buf.GetString()) : NULL)
 
 
@@ -4554,7 +4565,8 @@ do_encode(PyObject* value, PyObject* defaultFn, bool ensureAscii, unsigned write
                     uuidMode,                   \
                     bytesMode,                  \
                     iterableMode,               \
-                    mappingMode)		\
+                    mappingMode,			\
+		    yggdrasilMode)			\
      ? Py_INCREF(Py_None), Py_None : NULL)
 
 
@@ -4826,6 +4838,7 @@ typedef struct {
     unsigned bytesMode;
     unsigned iterableMode;
     unsigned mappingMode;
+    unsigned yggdrasilMode;
     unsigned expectsString;
 } ValidatorObject;
 
@@ -4834,7 +4847,7 @@ PyDoc_STRVAR(validator_doc,
              "Validator(json_schema, object_hook=None, number_mode=None,"
 	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
-	     " allow_nan=True)\n"
+	     " yggdrasil_mode=YM_BASE64, allow_nan=True)\n"
              "\n"
              "Create and return a new Validator instance from the given `json_schema`"
              " string or Python dictionary.");
@@ -4848,6 +4861,9 @@ static PyMethodDef validator_methods[] = {
     {"compare", (PyCFunction) validator_compare,
      METH_VARARGS | METH_KEYWORDS,
      "Compare two schemas for compatiblity."},
+    {"generate_data", (PyCFunction) validator_generate_data,
+     METH_NOARGS,
+     "Generate data that fits the schema."},
     {"check_schema", (PyCFunction) validator_check_schema,
      METH_VARARGS | METH_KEYWORDS | METH_CLASS,
      "Validate a schema against the JSON metaschema."},
@@ -4910,7 +4926,7 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     bool isEmptyString = false;
     if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
 			 v->uuidMode, v->bytesMode, v->iterableMode,
-			 v->mappingMode, v->expectsString,
+			 v->mappingMode, v->yggdrasilMode, v->expectsString,
 			 false, false, &isEmptyString))
 	return NULL;
 
@@ -4966,6 +4982,8 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
     unsigned mappingMode = MM_ANY_MAPPING;
+    PyObject* yggdrasilModeObj = NULL;
+    unsigned yggdrasilMode = YM_BASE64;
     int allowNan = -1;
     static char const* kwlist[] = {
 	"schema",
@@ -4976,6 +4994,7 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
         "bytes_mode",
         "iterable_mode",
         "mapping_mode",
+	"yggdrasil_mode",
 
         /* compatibility with stdlib json */
         "allow_nan",
@@ -4983,7 +5002,7 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
         NULL
     };
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOOOp:Validator",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOOOOp:Validator",
                                      (char**) kwlist,
 				     &jsonObject,
                                      &objectHook,
@@ -4993,6 +5012,7 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
 				     &bytesModeObj,
 				     &iterableModeObj,
 				     &mappingModeObj,
+				     &yggdrasilModeObj,
                                      &allowNan))
         return NULL;
 
@@ -5023,10 +5043,13 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
     if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
         return NULL;
 
+    if (!accept_yggdrasil_mode_arg(yggdrasilModeObj, yggdrasilMode))
+        return NULL;
+
     Document d;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, 0, true))
+			 mappingMode, yggdrasilMode, 0, true))
 	return NULL;
 
     ValidatorObject* v = (ValidatorObject*) type->tp_alloc(type, 0);
@@ -5043,6 +5066,7 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
     v->bytesMode = bytesMode;
     v->iterableMode = iterableMode;
     v->mappingMode = mappingMode;
+    v->yggdrasilMode = yggdrasilMode;
     v->expectsString = check_expectsString(d);
 
     return (PyObject*) v;
@@ -5071,6 +5095,8 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
     unsigned mappingMode = MM_ANY_MAPPING;
+    PyObject* yggdrasilModeObj = NULL;
+    unsigned yggdrasilMode = YM_BASE64;
     int allowNan = -1;
     static char const* kwlist[] = {
 	"schema",
@@ -5082,6 +5108,7 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
         "bytes_mode",
         "iterable_mode",
         "mapping_mode",
+	"yggdrasil_mode",
 
         /* compatibility with stdlib json */
         "allow_nan",
@@ -5090,7 +5117,7 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
     };
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs,
-				     "O|$OOOOOOOOp:Validator.check_schema",
+				     "O|$OOOOOOOOOp:Validator.check_schema",
                                      (char**) kwlist,
 				     &jsonObject,
 				     &jsonStandardObj,
@@ -5101,6 +5128,7 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
 				     &bytesModeObj,
 				     &iterableModeObj,
 				     &mappingModeObj,
+				     &yggdrasilModeObj,
                                      &allowNan))
         return NULL;
 
@@ -5135,10 +5163,13 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
     if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
         return NULL;
 
+    if (!accept_yggdrasil_mode_arg(yggdrasilModeObj, yggdrasilMode))
+        return NULL;
+
     Document d;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, 0, true))
+			 mappingMode, yggdrasilMode, 0, true))
 	return NULL;
 
     Document d_meta;
@@ -5244,6 +5275,34 @@ static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwa
 }
 
 
+static PyObject* validator_generate_data(PyObject* self, PyObject*, PyObject*)
+{
+    Document d;
+    ValidatorObject* v = (ValidatorObject*) self;
+    SchemaValidator validator(*v->schema);
+    bool accept = validator.GenerateData(d);
+    if (!accept) {
+	set_validation_error(validator, generate_error);
+	return NULL;
+    }
+
+    PyHandler handler(NULL, v->objectHook, v->datetimeMode, v->uuidMode,
+		      v->numberMode);
+    accept = d.Accept(handler);
+    if (!accept) {
+	PyErr_SetString(generate_error, "Error converting the generated JSON document to a Python object");
+	return NULL;
+    }
+    
+    if (PyErr_Occurred()) {
+        Py_XDECREF(handler.root);
+        return NULL;
+    }
+    
+    return handler.root;
+}
+
+
 PyDoc_STRVAR(validate_docstring,
              "validate(obj, schema, object_hook=None, number_mode=None,"
 	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
@@ -5323,6 +5382,8 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
     unsigned mappingMode = MM_ANY_MAPPING;
+    PyObject* yggdrasilModeObj = NULL;
+    unsigned yggdrasilMode = YM_BASE64;
     int allowNan = -1;
     static char const* kwlist[] = {
 	"obj",
@@ -5334,6 +5395,7 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
         "bytes_mode",
         "iterable_mode",
         "mapping_mode",
+	"yggdrasil_mode",
 
         /* compatibility with stdlib json */
         "allow_nan",
@@ -5341,7 +5403,7 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
         NULL
     };
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$pOOOOOOOp:encode_schema",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$pOOOOOOOOp:encode_schema",
                                      (char**) kwlist,
 				     &jsonObject,
 				     &minimalSchema,
@@ -5352,6 +5414,7 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
 				     &bytesModeObj,
 				     &iterableModeObj,
 				     &mappingModeObj,
+				     &yggdrasilModeObj,
                                      &allowNan))
         return NULL;
 
@@ -5382,10 +5445,13 @@ encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
     if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
         return NULL;
 
+    if (!accept_yggdrasil_mode_arg(yggdrasilModeObj, yggdrasilMode))
+        return NULL;
+
     Document d;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, 0, false, true))
+			 mappingMode, yggdrasilMode, 0, false, true))
 	return NULL;
 
     bool accept = false;
@@ -5570,6 +5636,50 @@ compare_schemas(PyObject* self, PyObject* args, PyObject* kwargs)
 }
 
 
+PyDoc_STRVAR(generate_data_docstring,
+             "generate_data(schema)\n"
+             "\n"
+	     "Generate data that conforms to the provided schema.");
+
+
+static PyObject*
+generate_data(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    PyObject *validatorObject = NULL;
+    static char const* kwlist[] = {
+	"schema",
+	NULL
+    };
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$p:generate_data",
+				     (char**) kwlist,
+				     &validatorObject))
+	return NULL;
+
+    if (validatorObject == NULL) {
+	return NULL;
+    }
+
+    PyObject* validator_args = PyTuple_Pack(1, validatorObject);
+    if (validator_args == NULL)
+	return NULL;
+    PyObject* validator_kwargs = PyDict_New();
+    if (validator_kwargs == NULL) {
+	Py_DECREF(validator_args);
+	return NULL;
+    }
+    PyObject* validator = validator_new(&Validator_Type, validator_args, validator_kwargs);
+    Py_DECREF(validator_args);
+    Py_DECREF(validator_kwargs);
+    if (validator == NULL)
+	return NULL;
+
+    PyObject* out = validator_generate_data(validator, NULL, NULL);
+    Py_DECREF(validator);
+    return out;
+}
+
+
 PyDoc_STRVAR(as_pure_json_docstring,
 	     "as_pure_json(json)\n"
 	     "\n"
@@ -5594,6 +5704,8 @@ as_pure_json(PyObject* self, PyObject* args, PyObject* kwargs)
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
     unsigned mappingMode = MM_ANY_MAPPING;
+    PyObject* yggdrasilModeObj = NULL;
+    unsigned yggdrasilMode = YM_BASE64;
     int allowNan = -1;
     static char const* kwlist[] = {
 	"json",
@@ -5605,6 +5717,7 @@ as_pure_json(PyObject* self, PyObject* args, PyObject* kwargs)
         "bytes_mode",
         "iterable_mode",
         "mapping_mode",
+	"yggdrasil_mode",
 
         /* compatibility with stdlib json */
         "allow_nan",
@@ -5622,6 +5735,7 @@ as_pure_json(PyObject* self, PyObject* args, PyObject* kwargs)
 				     &bytesModeObj,
 				     &iterableModeObj,
 				     &mappingModeObj,
+				     &yggdrasilModeObj,
                                      &allowNan))
 	return NULL;
     
@@ -5652,11 +5766,15 @@ as_pure_json(PyObject* self, PyObject* args, PyObject* kwargs)
     if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
         return NULL;
 
+    if (!accept_yggdrasil_mode_arg(yggdrasilModeObj, yggdrasilMode))
+        return NULL;
+
     Document d;
     bool isEmptyString = false;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, 0, false, false, &isEmptyString))
+			 mappingMode, yggdrasilMode, 0, false, false,
+			 &isEmptyString))
 	return NULL;
 
     PyHandler handler(decoderObject, objectHook, datetimeMode, uuidMode,
@@ -5684,6 +5802,7 @@ typedef struct {
     unsigned bytesMode;
     unsigned iterableMode;
     unsigned mappingMode;
+    unsigned yggdrasilMode;
     unsigned expectsString;
 } NormalizerObject;
 
@@ -5692,7 +5811,7 @@ PyDoc_STRVAR(normalizer_doc,
              "Normalizer(json_schema, object_hook=None, number_mode=None,"
 	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
-	     " allow_nan=True)\n"
+	     " yggdrasil_mode=YM_BASE64, allow_nan=True)\n"
              "\n"
              "Create and return a new Normalizer instance from the given `json_schema`"
              " string or Python dictionary.");
@@ -5708,6 +5827,9 @@ static PyMethodDef normalizer_methods[] = {
     {"compare", (PyCFunction) normalizer_compare,
      METH_VARARGS | METH_KEYWORDS,
      "Compare two schemas for compatiblity."},
+    {"generate_data", (PyCFunction) normalizer_generate_data,
+     METH_NOARGS,
+     "Generate data that fits the schema."},
     {"check_schema", (PyCFunction) normalizer_check_schema,
      METH_VARARGS | METH_KEYWORDS | METH_CLASS,
      "Validate a schema against the JSON metaschema."},
@@ -5770,7 +5892,7 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
     bool isEmptyString = false;
     if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
 			 v->uuidMode, v->bytesMode, v->iterableMode,
-			 v->mappingMode, v->expectsString,
+			 v->mappingMode, v->yggdrasilMode, v->expectsString,
 			 false, false, &isEmptyString))
 	return NULL;
     
@@ -5840,6 +5962,8 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
     unsigned iterableMode = IM_ANY_ITERABLE;
     PyObject* mappingModeObj = NULL;
     unsigned mappingMode = MM_ANY_MAPPING;
+    PyObject* yggdrasilModeObj = NULL;
+    unsigned yggdrasilMode = YM_BASE64;
     int allowNan = -1;
     static char const* kwlist[] = {
 	"schema",
@@ -5850,6 +5974,7 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
         "bytes_mode",
         "iterable_mode",
         "mapping_mode",
+	"yggdrasil_mode",
 
         /* compatibility with stdlib json */
         "allow_nan",
@@ -5857,7 +5982,7 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
         NULL
     };
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOOOp:Normalizer",
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOOOOp:Normalizer",
                                      (char**) kwlist,
 				     &jsonObject,
                                      &objectHook,
@@ -5867,6 +5992,7 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
 				     &bytesModeObj,
 				     &iterableModeObj,
 				     &mappingModeObj,
+				     &yggdrasilModeObj,
                                      &allowNan))
         return NULL;
 
@@ -5897,10 +6023,13 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
     if (!accept_mapping_mode_arg(mappingModeObj, mappingMode))
         return NULL;
 
+    if (!accept_yggdrasil_mode_arg(yggdrasilModeObj, yggdrasilMode))
+        return NULL;
+
     Document d;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, 0, true))
+			 mappingMode, yggdrasilMode, 0, true))
 	return NULL;
 
     NormalizerObject* v = (NormalizerObject*) type->tp_alloc(type, 0);
@@ -5917,6 +6046,7 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
     v->bytesMode = bytesMode;
     v->iterableMode = iterableMode;
     v->mappingMode = mappingMode;
+    v->yggdrasilMode = yggdrasilMode;
     v->expectsString = check_expectsString(d);
 
     return (PyObject*) v;
@@ -5939,7 +6069,7 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
     bool isEmptyString = false;
     if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
 			 v->uuidMode, v->bytesMode, v->iterableMode,
-			 v->mappingMode, v->expectsString,
+			 v->mappingMode, v->yggdrasilMode, v->expectsString,
 			 false, false, &isEmptyString))
 	return NULL;
 
@@ -6016,6 +6146,34 @@ static PyObject* normalizer_compare(PyObject* self, PyObject* args, PyObject* kw
 
 static PyObject* normalizer_check_schema(PyObject*, PyObject* args, PyObject* kwargs)
 { return validator_check_schema((PyObject*)(&Validator_Type), args, kwargs); }
+
+
+static PyObject* normalizer_generate_data(PyObject* self, PyObject*, PyObject*)
+{
+    Document d;
+    NormalizerObject* v = (NormalizerObject*) self;
+    SchemaNormalizer normalizer(*v->schema);
+    bool accept = normalizer.GenerateData(d);
+    if (!accept) {
+	set_validation_error(normalizer, generate_error);
+	return NULL;
+    }
+
+    PyHandler handler(NULL, v->objectHook, v->datetimeMode, v->uuidMode,
+		      v->numberMode);
+    accept = d.Accept(handler);
+    if (!accept) {
+	PyErr_SetString(generate_error, "Error converting the generated JSON document to a Python object");
+	return NULL;
+    }
+    
+    if (PyErr_Occurred()) {
+        Py_XDECREF(handler.root);
+        return NULL;
+    }
+    
+    return handler.root;
+}
 
 
 PyDoc_STRVAR(normalize_docstring,
@@ -6157,6 +6315,9 @@ static PyMethodDef functions[] = {
     {"compare_schemas", (PyCFunction) compare_schemas,
      METH_VARARGS | METH_KEYWORDS,
      compare_schemas_docstring},
+    {"generate_data", (PyCFunction) generate_data,
+     METH_VARARGS | METH_KEYWORDS,
+     generate_data_docstring},
     {"as_pure_json", (PyCFunction) as_pure_json,
      METH_VARARGS | METH_KEYWORDS,
      as_pure_json_docstring},
@@ -6340,6 +6501,7 @@ module_exec(PyObject* m)
 	
 	|| PyModule_AddIntConstant(m, "YM_BASE64", YM_BASE64)
 	|| PyModule_AddIntConstant(m, "YM_READABLE", YM_READABLE)
+	|| PyModule_AddIntConstant(m, "YM_PICKLE", YM_PICKLE)
 
         || PyModule_AddStringConstant(m, "__version__",
                                       STRINGIFY(PYTHON_RAPIDJSON_VERSION))
@@ -6442,6 +6604,16 @@ module_exec(PyObject* m)
     Py_INCREF(comparison_error);
     if (PyModule_AddObject(m, "ComparisonError", comparison_error) < 0) {
 	Py_DECREF(comparison_error);
+	return -1;
+    }
+
+    generate_error = PyErr_NewException("rapidjson.GenerateError",
+					  PyExc_ValueError, NULL);
+    if (generate_error == NULL)
+	return -1;
+    Py_INCREF(generate_error);
+    if (PyModule_AddObject(m, "GenerateError", generate_error) < 0) {
+	Py_DECREF(generate_error);
 	return -1;
     }
 

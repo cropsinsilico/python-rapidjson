@@ -213,3 +213,41 @@ def test_compare_schemas(schemaA, schemaB, details):
         with pytest.raises(rj.ComparisonError) as error:
             rj.compare_schemas(schemaA, schemaB)
         assert error.value.args == details
+
+
+@pytest.mark.parametrize('schema,result,details', (
+    ({"type": "number"}, 0.0, None),
+    ({"type": "integer"}, 0, None),
+    ({"type": "boolean"}, True, None),
+    ({"type": "object"}, {}, None),
+    ({"type": "object",
+      "properties": {
+          "a": {"type": "integer"}
+      }},
+     {"a": 0}, None),
+    ({"type": "object",
+      "additionalProperties": {
+          "type": "integer"
+      },
+      "minProperties": 3},
+     {"a": 0, "b": 0, "c": 0, "d": 0}, None),
+    ({"type": "array"}, [], None),
+    ({"type": "array",
+      "items": [
+          {"type": "integer"}
+      ]},
+     [0], None),
+    ({"type": "array",
+      "items": {
+          "type": "integer"
+      },
+      "minItems": 3},
+     [0, 0, 0, 0], None),
+))
+def test_generate_data(schema, result, details):
+    if details is None:
+        assert rj.generate_data(schema) == result
+    else:
+        with pytest.raises(rj.GenerateError) as error:
+            rj.generate_data(schema)
+        assert error.value.args == details
