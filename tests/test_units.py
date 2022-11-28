@@ -271,6 +271,7 @@ class TestQuantity:
         (1.0, "m", 50.0, "s", 0.02, "m/s"),
         (100.0, "cm", 0.5, "m", 2.0, ""),
         (0.5, "m", 100.0, "cm", 0.5, ""),
+        (24.0, "hr", 1.0, "day", 1, "n/a"),
     ])
     def test_divide(self, cls, assert_equal, value,
                     v1, u1, v2, u2, vExp, uExp):

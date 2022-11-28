@@ -225,6 +225,8 @@ enum YggdrasilMode {
     YM_MAX = 1<<3
 };
 
+static int SIZE_OF_SIZE_T = sizeof(size_t);
+
 
 //////////////////////////
 // Forward declarations //
@@ -2448,7 +2450,7 @@ do_decode(PyObject* decoder, const char* jsonStr, Py_ssize_t jsonStrLen,
             // value is a string.  Otherwise, use the original exception since
             // we can't be sure the exception type takes a single string.
             if (evalue != NULL && PyUnicode_Check(evalue)) {
-                PyErr_Format(etype, "Parse error at offset %zu: %S", offset, evalue);
+                PyErr_Format(etype, "Python parse error at offset %zu: %S", offset, evalue);
                 Py_DECREF(etype);
                 Py_DECREF(evalue);
                 Py_XDECREF(etraceback);
@@ -6502,6 +6504,8 @@ module_exec(PyObject* m)
 	|| PyModule_AddIntConstant(m, "YM_BASE64", YM_BASE64)
 	|| PyModule_AddIntConstant(m, "YM_READABLE", YM_READABLE)
 	|| PyModule_AddIntConstant(m, "YM_PICKLE", YM_PICKLE)
+
+	|| PyModule_AddIntConstant(m, "SIZE_OF_SIZE_T", SIZE_OF_SIZE_T)
 
         || PyModule_AddStringConstant(m, "__version__",
                                       STRINGIFY(PYTHON_RAPIDJSON_VERSION))
