@@ -484,11 +484,13 @@ class TestQuantityArray(TestQuantity):
     def test_trig(self, func, finv, x_in, x_out):
         arr_rad = np.asarray(x_in)
         arr_out = np.asarray(x_out)
+        x_nul = units.QuantityArray(x_in, "n/a")
         x_rad = units.QuantityArray(x_in, "radians")
         x_deg = units.QuantityArray(np.rad2deg(arr_rad), "degrees")
         x_res = units.QuantityArray(x_out)
         assert np.allclose(np.rad2deg(x_rad), x_deg)
         assert np.allclose(np.deg2rad(x_deg), x_rad)
+        assert np.allclose(func(x_nul), arr_out)
         assert np.allclose(func(x_rad), arr_out)
         assert np.allclose(func(x_deg), arr_out)
         assert np.allclose(finv(x_res), x_rad)

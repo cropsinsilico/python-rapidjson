@@ -1372,12 +1372,20 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 		   ufunc_name == "cosh" ||
 		   ufunc_name == "tanh") {
 	    if (_has_units(i0)) {
-		tmp = PyUnicode_FromString("radians");
-		if (tmp == NULL) {
-		    goto cleanup;
+		tmp2 = _get_units(i0);
+		if (((UnitsObject*)tmp2)->units->is_null()) {
+		    Py_DECREF(tmp2);
+		    convert_units = get_empty_units();
+		} else {
+		    Py_DECREF(tmp2);
+		    tmp = PyUnicode_FromString("radians");
+		    if (tmp == NULL) {
+			goto cleanup;
+		    }
+		    convert_units = (PyObject*)units_coerce(tmp);
+		    Py_DECREF(tmp);
 		}
-		convert_units = (PyObject*)units_coerce(tmp);
-		Py_DECREF(tmp);
+		tmp2 = NULL;
 		if (convert_units == NULL) {
 		    goto cleanup;
 		}
