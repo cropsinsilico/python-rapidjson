@@ -35,6 +35,12 @@ class TestUnits:
     def test_str(self, x, options):
         assert str(x) == options[1]
 
+    def test_str_multiply(self):
+        x = units.Units("")
+        y = units.Units("hr")
+        z = x * y
+        assert str(z) == "hr"
+
     @pytest.mark.parametrize('u', [
         'invalid'
     ])
@@ -83,6 +89,9 @@ class TestQuantity:
 
     @pytest.fixture(scope="class", params=[
         ({'args': (5.5, ),
+          'units_equiv': 'n/a',
+          'units_incompat': 'g'}),
+        ({'args': (5.5, ""),
           'units_equiv': 'n/a',
           'units_incompat': 'g'}),
         ({'args': (1.5, 'm'),

@@ -339,6 +339,7 @@ static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
     if (!PyArg_ParseTuple(args, "O:Units", &exprObject))
 	return NULL;
 
+    std::string exprStr_;
     const char* exprStr = 0;
     const UnitsObject* other;
 
@@ -363,14 +364,16 @@ static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
     if (v == NULL)
         return NULL;
 
-    if (exprStr)
+    if (exprStr) {
 	v->units = new Units(exprStr);
-    else
+    } else {
+	exprStr_ = other->units->str();
+	exprStr = exprStr_.c_str();
 	v->units = new Units(*other->units);
+    }
     if (v->units->is_empty()) {
-	PyObject* error = Py_BuildValue("s", "Failed to parse units.");
-	PyErr_SetObject(units_error, error);
-	Py_XDECREF(error);
+	PyErr_Format(units_error,
+		     "Failed to parse units '%s'", exprStr);
 	return NULL;
     }
 
