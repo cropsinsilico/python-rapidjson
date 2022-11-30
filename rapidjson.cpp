@@ -4919,8 +4919,17 @@ static PyTypeObject Validator_Type = {
 static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject;
+    PyObject* relativePathRootObj = NULL;
+    static char const* kwlist[] = {
+	"obj",
+	"relative_path_root",
+	NULL
+    };
 
-    if (!PyArg_ParseTuple(args, "O", &jsonObject))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$O",
+				     (char**) kwlist,
+				     &jsonObject,
+				     &relativePathRootObj))
         return NULL;
 
     ValidatorObject* v = (ValidatorObject*) self;
@@ -4933,6 +4942,14 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
 	return NULL;
 
     SchemaValidator validator(*v->schema);
+    if (relativePathRootObj != NULL) {
+	Py_ssize_t relativePathRootLen = 0;
+	const char* relativePathRootStr = PyUnicode_AsUTF8AndSize(relativePathRootObj, &relativePathRootLen);
+	if (!relativePathRootStr)
+	    return NULL;
+	validator.SetRelativePathRoot(relativePathRootStr,
+				      (SizeType)relativePathRootLen);
+    }
     bool accept;
 
     if (validator.RequiresPython() || d.RequiresPython()) {
@@ -5309,7 +5326,7 @@ PyDoc_STRVAR(validate_docstring,
              "validate(obj, schema, object_hook=None, number_mode=None,"
 	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
-	     " allow_nan=True)\n"
+	     " allow_nan=True, relative_path_root=None)\n"
              "\n"
 	     "Validate a Python object against a JSON schema.");
 
@@ -5338,20 +5355,43 @@ validate(PyObject* self, PyObject* args, PyObject* kwargs)
 	    return NULL;
 	}
     }
+
+    PyObject* relativePathRootObj = NULL;
+    if (kwargs != NULL)
+	relativePathRootObj = PyDict_GetItemString(kwargs, "relative_path_root");
+    PyObject* call_kwargs = NULL;
+    if (relativePathRootObj != NULL) {
+	call_kwargs = PyDict_New();
+	if (PyDict_SetItemString(call_kwargs, "relative_path_root",
+				 relativePathRootObj) < 0) {
+	    Py_DECREF(validator_args);
+	    Py_DECREF(call_kwargs);
+	    return NULL;
+	}
+	if (PyDict_DelItemString(kwargs, "relative_path_root") < 0) {
+	    Py_DECREF(validator_args);
+	    Py_DECREF(call_kwargs);
+	    return NULL;
+	}
+    }
 			
     PyObject* validator = validator_new(&Validator_Type, validator_args, kwargs);
     Py_DECREF(validator_args);
-    if (validator == NULL)
+    if (validator == NULL) {
+	Py_XDECREF(call_kwargs);
 	return NULL;
+    }
 
     PyObject* instance = PyTuple_GetItem(args, 0);
     if (instance == NULL) {
+	Py_XDECREF(call_kwargs);
 	Py_DECREF(validator);
 	return NULL;
     }
     PyObject* call_args = PyTuple_Pack(1, instance);
     PyObject* out = validator_call(validator, call_args, NULL);
     Py_DECREF(call_args);
+    Py_XDECREF(call_kwargs);
     Py_DECREF(validator);
     return out;
 }
@@ -5885,8 +5925,17 @@ static PyTypeObject Normalizer_Type = {
 static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject;
+    PyObject* relativePathRootObj = NULL;
+    static char const* kwlist[] = {
+	"obj",
+	"relative_path_root",
+	NULL
+    };
 
-    if (!PyArg_ParseTuple(args, "O", &jsonObject))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$O",
+				     (char**) kwlist,
+				     &jsonObject,
+				     &relativePathRootObj))
         return NULL;
 
     NormalizerObject* v = (NormalizerObject*) self;
@@ -5899,6 +5948,14 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
 	return NULL;
     
     SchemaNormalizer normalizer(*((NormalizerObject*) self)->schema);
+    if (relativePathRootObj != NULL) {
+	Py_ssize_t relativePathRootLen = 0;
+	const char* relativePathRootStr = PyUnicode_AsUTF8AndSize(relativePathRootObj, &relativePathRootLen);
+	if (!relativePathRootStr)
+	    return NULL;
+	normalizer.SetRelativePathRoot(relativePathRootStr,
+				       (SizeType)relativePathRootLen);
+    }
     bool accept;
 
     if (normalizer.RequiresPython() || d.RequiresPython()) {
@@ -6182,7 +6239,7 @@ PyDoc_STRVAR(normalize_docstring,
              "normalize(obj, schema, object_hook=None, number_mode=None,"
 	     " datetime_mode=None, uuid_mode=None, bytes_mode=BM_SCALAR,"
 	     " iterable_mode=IM_ANY_ITERABLE, mapping_mode=MM_ANY_MAPPING,"
-	     " allow_nan=True)\n"
+	     " allow_nan=True, relative_path_root=None)\n"
              "\n"
 	     "Normalize a Python object against a JSON schema.");
 
@@ -6212,19 +6269,42 @@ normalize(PyObject* self, PyObject* args, PyObject* kwargs)
 	}
     }
 			
+    PyObject* relativePathRootObj = NULL;
+    if (kwargs != NULL)
+	relativePathRootObj = PyDict_GetItemString(kwargs, "relative_path_root");
+    PyObject* call_kwargs = NULL;
+    if (relativePathRootObj != NULL) {
+	call_kwargs = PyDict_New();
+	if (PyDict_SetItemString(call_kwargs, "relative_path_root",
+				 relativePathRootObj) < 0) {
+	    Py_DECREF(normalizer_args);
+	    Py_DECREF(call_kwargs);
+	    return NULL;
+	}
+	if (PyDict_DelItemString(kwargs, "relative_path_root") < 0) {
+	    Py_DECREF(normalizer_args);
+	    Py_DECREF(call_kwargs);
+	    return NULL;
+	}
+    }
+			
     PyObject* normalizer = normalizer_new(&Normalizer_Type, normalizer_args, kwargs);
     Py_DECREF(normalizer_args);
-    if (normalizer == NULL)
+    if (normalizer == NULL) {
+	Py_XDECREF(call_kwargs);
 	return NULL;
+    }
 
     PyObject* instance = PyTuple_GetItem(args, 0);
     if (instance == NULL) {
+	Py_XDECREF(call_kwargs);
 	Py_DECREF(normalizer);
 	return NULL;
     }
     PyObject* call_args = PyTuple_Pack(1, instance);
-    PyObject* out = normalizer_call(normalizer, call_args, NULL);
+    PyObject* out = normalizer_call(normalizer, call_args, call_kwargs);
     Py_DECREF(call_args);
+    Py_XDECREF(call_kwargs);
     Py_DECREF(normalizer);
     return out;
 }

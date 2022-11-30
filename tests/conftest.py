@@ -40,8 +40,8 @@ def pytest_generate_tests(metafunc):
     if 'dumps' in metafunc.fixturenames and 'loads' in metafunc.fixturenames:
         metafunc.parametrize('dumps,loads', (
             ((rj.dumps, rj.loads),
-             (lambda o,**opts: rj.Encoder(**opts)(o),
-              lambda j,**opts: rj.Decoder(**opts)(j)))
+             (lambda o, **opts: rj.Encoder(**opts)(o),
+              lambda j, **opts: rj.Decoder(**opts)(j)))
         ), ids=('func[string]',
                 'class[string]'))
     elif 'dumps' in metafunc.fixturenames:
@@ -49,7 +49,7 @@ def pytest_generate_tests(metafunc):
             rj.dumps,
             binary_streaming_dumps,
             text_streaming_dumps,
-            lambda o,**opts: rj.Encoder(**opts)(o),
+            lambda o, **opts: rj.Encoder(**opts)(o),
             binary_streaming_encoder,
             text_streaming_encoder,
         ), ids=('func[string]',
@@ -61,13 +61,15 @@ def pytest_generate_tests(metafunc):
     elif 'loads' in metafunc.fixturenames:
         metafunc.parametrize('loads', (
             rj.loads,
-            lambda j,**opts: rj.load(io.BytesIO(j.encode('utf-8')
-                                           if isinstance(j, str) else j), **opts),
-            lambda j,**opts: rj.load(io.StringIO(j), **opts),
-            lambda j,**opts: rj.Decoder(**opts)(j),
-            lambda j,**opts: rj.Decoder(**opts)(io.BytesIO(j.encode('utf-8')
-                                                      if isinstance(j, str) else j)),
-            lambda j,**opts: rj.Decoder(**opts)(io.StringIO(j)),
+            lambda j, **opts: rj.load(
+                io.BytesIO(j.encode('utf-8')
+                           if isinstance(j, str) else j), **opts),
+            lambda j, **opts: rj.load(io.StringIO(j), **opts),
+            lambda j, **opts: rj.Decoder(**opts)(j),
+            lambda j, **opts: rj.Decoder(**opts)(
+                io.BytesIO(j.encode('utf-8')
+                           if isinstance(j, str) else j)),
+            lambda j, **opts: rj.Decoder(**opts)(io.StringIO(j)),
         ), ids=('func[string]',
                 'func[bytestream]',
                 'func[textstream]',
@@ -104,3 +106,9 @@ def example_function(rapidjson_test_module):
 @pytest.fixture
 def example_instance(example_class):
     return example_class(1, 'b', c=2, d='d')
+
+
+@pytest.fixture
+def example_class_builtin(rapidjson_test_module):
+    import collections
+    return collections.OrderedDict

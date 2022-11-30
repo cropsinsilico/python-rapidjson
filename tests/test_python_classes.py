@@ -30,6 +30,7 @@ def test_python_objects(dumps, loads, value_str, request):
         ('example_instance', {'class': 'example_python:ExampleClass',
                               'args': [1, 'b'],
                               'kwargs': {'c': 2, 'd': 'd'}}),
+        ('example_class_builtin', 'collections:OrderedDict')
     ])
 def test_python_objects_as_pure_python(dumps, loads, value_str, result,
                                        request):
