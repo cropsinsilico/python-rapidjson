@@ -521,7 +521,7 @@ static PyObject* do_units_pow(PyObject* a, PyObject *b, PyObject* mod,
     PyObject* out;
     if (inplace) {
 	out = a;
-	((UnitsObject*)out)->units->inplace_pow(expV);
+	((UnitsObject*)out)->units->pow_inplace(expV);
     } else {
 	out = (PyObject*) Units_Type.tp_alloc(&Units_Type, 0);
 	((UnitsObject*)out)->units = new Units();
