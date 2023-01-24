@@ -29,6 +29,7 @@ def test_invalid_json():
      '"Life, the universe, and everything"'),
     ({"type": ["number", "string"]}, 42),
     ({"type": ["number", "string"]}, "Life, the universe, and everything"),
+    ({"type": "string"}, '0000000'),
 ))
 def test_valid(schema, json):
     validate = rj.Validator(schema)
