@@ -23,7 +23,9 @@ class TestUnits:
         ("g**2", "g**2"),
         ("km", "km"),
         ("s", "s"),
-        ("km*s", "km*s")
+        ("km*s", "km*s"),
+        ("100%", "100%"),
+        ("fraction", "100%"),
     ])
     def options(self, request):
         return request.param
