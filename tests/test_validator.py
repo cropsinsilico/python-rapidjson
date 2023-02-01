@@ -8,6 +8,7 @@
 import pytest
 
 import rapidjson as rj
+import numpy as np
 
 
 def test_invalid_schema():
@@ -244,10 +245,16 @@ def test_compare_schemas(schemaA, schemaB, details):
       },
       "minItems": 3},
      [0, 0, 0, 0], None),
+    ({"type": "1darray"},
+     np.zeros((2, ), dtype=np.int32), None)
 ))
 def test_generate_data(schema, result, details):
     if details is None:
-        assert rj.generate_data(schema) == result
+        if isinstance(result, np.ndarray):
+            np.testing.assert_array_equal(rj.generate_data(schema),
+                                          result)
+        else:
+            assert rj.generate_data(schema) == result
     else:
         with pytest.raises(rj.GenerateError) as error:
             rj.generate_data(schema)
