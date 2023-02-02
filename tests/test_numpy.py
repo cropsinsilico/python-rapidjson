@@ -77,7 +77,7 @@ def test_scalars_castable(dumps, loads, np_type):
         np.complex64, np.complex128,
     ))
 def test_arrays(dumps, loads, np_type):
-    value = np.arange(3, dtype=np_type)
+    value = np.arange(6, dtype=np_type).reshape((2, 3))
     dumped = dumps(value)
     loaded = loads(dumped)
     assert type(loaded) is type(value) and loaded.dtype == value.dtype
