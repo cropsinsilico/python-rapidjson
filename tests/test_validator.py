@@ -205,7 +205,14 @@ def test_get_metaschema():
       '    "instanceRef": "#",\n'
       '    "schemaRef": "#"\n'
       '}', )),
-))
+    ({'type': 'scalar', 'subtype': 'int', 'precision': 8},
+     {'type': 'ply'},
+     ('{\n'
+      '    "message": "Incompatible schema property \'type\': [\\"scalar\\"] '
+      'vs [\\"ply\\"].",\n'
+      '    "instanceRef": "#",\n'
+      '    "schemaRef": "#"\n'
+      '}', ))))
 def test_compare_schemas(schemaA, schemaB, details):
     assert rj.compare_schemas(schemaA, schemaA)
     if details is None:
@@ -215,6 +222,8 @@ def test_compare_schemas(schemaA, schemaB, details):
         with pytest.raises(rj.ComparisonError) as error:
             rj.compare_schemas(schemaA, schemaB)
         assert error.value.args == details
+        with pytest.raises(rj.ComparisonError):
+            rj.compare_schemas(schemaB, schemaA)
 
 
 @pytest.mark.parametrize('schema,result,details', (
