@@ -110,8 +110,12 @@ extension_options['extra_compile_args'] += ['-DRAPIDJSON_YGGDRASIL',
 
 if with_asan:
     extension_options.setdefault('extra_link_args', [])
-    extension_options['extra_compile_args'].append('-fsanitize=address')
-    extension_options['extra_link_args'].append('-fsanitize=address')
+    extension_options['extra_compile_args'] += [
+        '-fsanitize=address', '-g', '-O0', '-fsanitize=undefined',
+        '-fno-omit-frame-pointer']
+    extension_options['extra_link_args'] += [
+        '-fsanitize=address', '-fsanitize=undefined',
+        '-fno-omit-frame-pointer']
     extension_options['extra_link_args'].append('-shared-libasan')
 
 setup(
