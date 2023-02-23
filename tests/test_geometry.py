@@ -42,7 +42,8 @@ def mesh_base():
     bounds = (base['vertices'].min(axis=0),
               base['vertices'].max(axis=0))
 
-    def wrapped_mesh_base(stack=1, obj=False):
+    def wrapped_mesh_base(stack=1, obj=False, types={},
+                          only_triangles=False):
         zero = 0
         # if obj:
         #     zero = 1
@@ -56,6 +57,8 @@ def mesh_base():
                     ibase[ibase >= 0] += (i * nvert)
                     arrs.append(ibase)
                 out[k] = np.vstack(arrs) + zero
+                if only_triangles:
+                    out[k] = out[k][:, :3]
             elif k in ['mesh']:
                 out[k] = copy.deepcopy(base[k])
                 for _ in range(1, stack):
@@ -70,6 +73,9 @@ def mesh_base():
                 out[k] = np.vstack([base[k] for i in range(stack)])
         if obj:
             out.pop("edge_colors", False)
+        for k, v in types.items():
+            if k in out:
+                out[k] = out[k].astype(v)
         return out
 
     return wrapped_mesh_base
@@ -143,11 +149,13 @@ def mesh_args_factory(mesh_base, mesh_array, mesh_dict):
 
     def args_factory(args=["vertices", "faces", "edges", "comments"],
                      kwargs=[], as_array=False, as_list=False,
-                     with_colors=False, stack=1, obj=False):
+                     with_colors=False, stack=1, obj=False, types={},
+                     only_triangles=False):
         zero = 0
         # if obj:
         #     zero = 1
-        base_ = mesh_base(stack=stack, obj=obj)
+        base_ = mesh_base(stack=stack, obj=obj, types=types,
+                          only_triangles=only_triangles)
         mesh_array_ = mesh_array(base_, with_colors=with_colors)
         mesh_dict_ = mesh_dict(base_, with_colors=with_colors, obj=obj)
         colors = []
@@ -450,6 +458,30 @@ class TestPly:
         np.testing.assert_array_equal(xC.get_colors("vertex", as_array=True),
                                       result['vertex_colors'])
         x.add_colors("vertex", result['vertex_colors'])
+
+    def test_trimesh(self, cls, mesh_args_factory, dumps, loads,
+                     factory_options, requires_vertex):
+        if 'edges' in (factory_options.get('args', [])
+                       + factory_options.get('kwargs', [])):
+            pytest.skip("Edges not supported by trimesh")
+        try:
+            import trimesh
+            opts = copy.deepcopy(factory_options)
+            opts.update(types={'vertices': np.float64},
+                        with_colors=True, only_triangles=True)
+            param = mesh_args_factory(**opts)
+            x = cls(*param[0], **param[1])
+            x_trimesh = x.as_trimesh()
+            dumped = dumps(x_trimesh)
+            loaded = loads(dumped)
+            if factory_options.get('obj', False):
+                loaded = cls(loaded)
+            assert loaded == x
+            y = cls.from_trimesh(x_trimesh)
+            assert y == x
+            del trimesh
+        except ImportError:
+            pytest.skip("Trimesh not installed")
 
 
 @pytest.mark.parametrize('factory_options', [
