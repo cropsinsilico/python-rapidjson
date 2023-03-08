@@ -24,6 +24,14 @@ def test_invalid_json():
     pytest.raises(rj.JSONDecodeError, validate.validate, '"')
 
 
+def test_notEncoded():
+    validator = rj.Validator('{"type": "number"}')
+    pytest.raises(rj.ValidationError, validator,
+                  '1', not_encoded=True)
+    pytest.raises(rj.ValidationError, validator.validate,
+                  '1', not_encoded=True)
+
+
 @pytest.mark.parametrize('schema,json', (
     ('{ "type": ["number", "string"] }', '42'),
     ('{ "type": ["number", "string"] }',

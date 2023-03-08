@@ -30,6 +30,16 @@ def test_invalid_json():
     pytest.raises(rj.JSONDecodeError, normalizer.validate, '"')
 
 
+def test_notEncoded():
+    normalizer = rj.Normalizer('{"type": "number"}')
+    pytest.raises(rj.NormalizationError, normalizer,
+                  '1', not_encoded=True)
+    pytest.raises(rj.NormalizationError, normalizer.normalize,
+                  '1', not_encoded=True)
+    pytest.raises(rj.ValidationError, normalizer.validate,
+                  '1', not_encoded=True)
+
+
 @pytest.mark.parametrize('schema,json,normalized', (
     ('{ "type": "object", '
      '  "properties": { "color": { "default": "purple"} },'
