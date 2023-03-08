@@ -3326,10 +3326,14 @@ PythonAccept(
 	    Py_DECREF(ply_args);
 	    if (object_ply == NULL)
 		return false;
-	    Value* x = new Value();
-	    x->SetPlyRaw(*object_ply->ply, &allocator);
+	    if (object_ply->ply == NULL) {
+		Py_DECREF(object_ply);
+		return false;
+	    }
+	    Value x;
+	    x.SetPlyRaw(*(object_ply->ply), &allocator);
 	    Py_DECREF((PyObject*)object_ply);
-	    bool ret = x->Accept(*handler);
+	    bool ret = x.Accept(*handler);
 	    if (!ret)
 		PyErr_Format(PyExc_TypeError, "Error serializing Trimesh instance as Ply instance");
 	    return ret;
