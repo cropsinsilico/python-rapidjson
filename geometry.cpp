@@ -1246,31 +1246,39 @@ static PyObject* ply_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs
     return out;
 }
 static PyObject* ply_from_trimesh(PyObject* cls, PyObject* args, PyObject* kwargs) {
+    int j = 0;
+    std::cerr << "ply_from_trimesh: " << j++ << std::endl;
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
+    std::cerr << "ply_from_trimesh: " << j++ << std::endl;
     PyObject* geom_kwargs = trimesh2dict(solf);
     if (geom_kwargs == NULL) {
 	return NULL;
     }
+    std::cerr << "ply_from_trimesh: " << j++ << std::endl;
     PyObject* dict_args = PyTuple_Pack(1, geom_kwargs);
     if (dict_args == NULL) {
 	Py_DECREF(geom_kwargs);
 	return NULL;
     }
+    std::cerr << "ply_from_trimesh: " << j++ << std::endl;
     PyObject* dict_kwargs = PyDict_New();
     if (dict_kwargs == NULL) {
 	Py_DECREF(dict_args);
 	return NULL;
     }
+    std::cerr << "ply_from_trimesh: " << j++ << std::endl;
     if (PyDict_SetItemString(dict_kwargs, "as_array", Py_True) < 0) {
 	Py_DECREF(dict_args);
 	Py_DECREF(dict_kwargs);
 	return NULL;
     }
+    std::cerr << "ply_from_trimesh: " << j++ << std::endl;
     PyObject* out = ply_from_dict(cls, dict_args, dict_kwargs);
     Py_DECREF(dict_args);
     Py_DECREF(dict_kwargs);
+    std::cerr << "ply_from_trimesh: " << j++ << std::endl;
     return out;
 }
 
