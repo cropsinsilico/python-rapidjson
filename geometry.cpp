@@ -111,37 +111,45 @@ PyObject* import_trimesh_class() {
     return out;
 }
 PyObject* trimesh2dict(PyObject* solf) {
+    int j = 0;
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* trimeshClass = import_trimesh_class();
     if (trimeshClass == NULL) {
 	PyErr_Format(PyExc_ImportError, "Trimesh not available");
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     if (!PyObject_IsInstance(solf, trimeshClass)) {
 	Py_DECREF(trimeshClass);
 	PyErr_Format(PyExc_TypeError, "Input is not a trimesh class.");
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     Py_DECREF(trimeshClass);
     PyObject* vertices = PyObject_GetAttrString(solf, "vertices");
     if (vertices == NULL)
 	return NULL;
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* visual = PyObject_GetAttrString(solf, "visual");
     if (visual == NULL) {
 	Py_DECREF(vertices);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* vertex_colors = PyObject_GetAttrString(visual, "vertex_colors");
     Py_DECREF(visual);
     if (vertex_colors == NULL) {
 	Py_DECREF(vertices);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* slice1 = PySlice_New(NULL, NULL, NULL);
     if (slice1 == NULL) {
 	Py_DECREF(vertex_colors);
 	Py_DECREF(vertices);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* end = PyLong_FromLong(3);
     if (end == NULL) {
 	Py_DECREF(slice1);
@@ -149,6 +157,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(vertices);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* slice2 = PySlice_New(NULL, end, NULL);
     Py_DECREF(end);
     if (slice2 == NULL) {
@@ -157,6 +166,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(vertices);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* slices = PyTuple_Pack(2, slice1, slice2);
     if (slices == NULL) {
 	Py_DECREF(slice2);
@@ -165,6 +175,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(vertices);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* vertex_colors_sliced = PyObject_GetItem(vertex_colors, slices);
     Py_DECREF(vertex_colors);
     Py_DECREF(slices);
@@ -172,12 +183,14 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(vertices);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* faces = PyObject_GetAttrString(solf, "faces");
     if (faces == NULL) {
 	Py_DECREF(vertices);
 	Py_DECREF(vertex_colors_sliced);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* astypeMethod = PyUnicode_FromString("astype");
     if (astypeMethod == NULL) {
 	Py_DECREF(faces);
@@ -185,6 +198,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(vertex_colors_sliced);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* int32 = PyUnicode_FromString("int32");
     if (int32 == NULL) {
 	Py_DECREF(faces);
@@ -193,6 +207,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(vertex_colors_sliced);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* faces_int32 = PyObject_CallMethodObjArgs(faces, astypeMethod, int32, NULL);
     Py_DECREF(faces);
     Py_DECREF(astypeMethod);
@@ -202,6 +217,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(vertex_colors_sliced);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* dict_kwargs = PyDict_New();
     if (dict_kwargs == NULL) {
 	Py_DECREF(vertices);
@@ -209,6 +225,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(faces_int32);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* numpy = PyImport_ImportModule("numpy");
     if (numpy == NULL) {
 	Py_DECREF(dict_kwargs);
@@ -218,6 +235,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	PyErr_Format(PyExc_ImportError, "Numpy not available");
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* ndarray = PyObject_GetAttrString(numpy, "ndarray");
     Py_DECREF(numpy);
     if (ndarray == NULL) {
@@ -227,6 +245,7 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(faces_int32);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     PyObject* viewMethod = PyUnicode_FromString("view");
     if (viewMethod == NULL) {
 	Py_DECREF(dict_kwargs);
@@ -248,10 +267,14 @@ PyObject* trimesh2dict(PyObject* solf) {
 	}								\
     }									\
     Py_DECREF(var ## _array)
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     ADD_KEY_(vertex, vertices);
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     ADD_KEY_(vertex_colors, vertex_colors_sliced);
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     ADD_KEY_(face, faces_int32);
 #undef ADD_KEY_
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
     Py_DECREF(vertices);
     Py_DECREF(vertex_colors_sliced);
     Py_DECREF(faces_int32);
