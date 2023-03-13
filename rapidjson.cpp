@@ -3315,8 +3315,6 @@ PythonAccept(
 	// Try to import trimesh
 	PyObject* trimeshClass = import_trimesh_class();
 	if (trimeshClass != NULL && PyObject_IsInstance(object, trimeshClass)) {
-	    int j = 0;
-	    std::cerr << "HERE: " << j++ << std::endl;
 	    RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	    Py_INCREF(object);
 	    PyObject* ply_args = PyTuple_Pack(1, object);
@@ -3324,9 +3322,7 @@ PythonAccept(
 		Py_DECREF(object);
 		return false;
 	    }
-	    std::cerr << "HERE: " << j++ << std::endl;
 	    PlyObject* object_ply = (PlyObject*)ply_from_trimesh(NULL, ply_args, NULL);
-	    std::cerr << "HERE: " << j++ << std::endl;
 	    Py_DECREF(ply_args);
 	    if (object_ply == NULL)
 		return false;
@@ -3334,14 +3330,12 @@ PythonAccept(
 		Py_DECREF(object_ply);
 		return false;
 	    }
-	    std::cerr << "HERE: " << j++ << std::endl;
 	    Value x;
 	    x.SetPlyRaw(*(object_ply->ply), &allocator);
 	    Py_DECREF((PyObject*)object_ply);
 	    bool ret = x.Accept(*handler);
 	    if (!ret)
 		PyErr_Format(PyExc_TypeError, "Error serializing Trimesh instance as Ply instance");
-	    std::cerr << "HERE: " << j++ << std::endl;
 	    return ret;
 	}
 	// PythonAccept
