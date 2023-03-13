@@ -255,19 +255,29 @@ PyObject* trimesh2dict(PyObject* solf) {
 	Py_DECREF(ndarray);
 	return NULL;
     }
+    std::cerr << "trimesh2dict: " << j++ << std::endl;
 #define ADD_KEY_(name, var)					\
-    PyObject* var ## _array = PyObject_CallMethodObjArgs(var, viewMethod, ndarray); \
+    PyObject* var ## _array = PyObject_CallMethodObjArgs(var, viewMethod, ndarray, NULL); \
+    if (var ## _array == NULL) {					\
+	Py_DECREF(dict_kwargs);						\
+	Py_DECREF(vertices);						\
+	Py_DECREF(vertex_colors_sliced);				\
+	Py_DECREF(faces_int32);						\
+	Py_DECREF(ndarray);						\
+	return NULL;							\
+    }									\
     if (PyObject_Size(var ## _array) > 0) {				\
 	if (PyDict_SetItemString(dict_kwargs, #name, var ## _array) < 0) { \
 	    Py_DECREF(dict_kwargs);					\
 	    Py_DECREF(vertices);					\
 	    Py_DECREF(vertex_colors_sliced);				\
 	    Py_DECREF(faces_int32);					\
+	    Py_DECREF(ndarray);						\
 	    return NULL;						\
 	}								\
     }									\
     Py_DECREF(var ## _array)
-    std::cerr << "trimesh2dict: " << j++ << std::endl;
+    std::cerr << "trimesh2dict: before first key" << std::endl;
     ADD_KEY_(vertex, vertices);
     std::cerr << "trimesh2dict: " << j++ << std::endl;
     ADD_KEY_(vertex_colors, vertex_colors_sliced);
