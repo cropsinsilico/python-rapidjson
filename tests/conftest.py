@@ -79,10 +79,15 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def rapidjson_test_module_on_path():
-    ret = os.path.abspath(os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), 'rapidjson', 'test'))
-    sys.path.insert(0, ret)
+def rapidjson_test_module_path():
+    return os.path.abspath(os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'rapidjson', 'test', 'example_python.py'))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def rapidjson_test_module_on_path(rapidjson_test_module_path):
+    sys.path.insert(0, os.path.dirname(rapidjson_test_module_path))
     yield
     sys.path.pop(0)
 

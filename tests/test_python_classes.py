@@ -8,6 +8,7 @@
 import pytest
 
 import rapidjson as rj
+import collections
 
 
 @pytest.mark.parametrize(
@@ -25,15 +26,25 @@ def test_python_objects(dumps, loads, value_str, request):
 
 @pytest.mark.parametrize(
     'value_str,result', [
-        ('example_function', 'example_python:example_function'),
-        ('example_class', 'example_python:ExampleClass'),
-        ('example_instance', {'class': 'example_python:ExampleClass',
-                              'args': [1, 'b'],
-                              'kwargs': {'c': 2, 'd': 'd'}}),
-        ('example_class_builtin', 'collections:OrderedDict')
+        ('example_function',
+         '{rapidjson_test_module_path}:example_python:example_function'),
+        ('example_class',
+         '{rapidjson_test_module_path}:example_python:ExampleClass'),
+        ('example_instance',
+         {'class': '{rapidjson_test_module_path}:example_python:ExampleClass',
+          'args': [1, 'b'],
+          'kwargs': {'c': 2, 'd': 'd'}}),
+        ('example_class_builtin',
+         f'{collections.__file__}:collections:OrderedDict')
     ])
 def test_python_objects_as_pure_python(dumps, loads, value_str, result,
-                                       request):
+                                       request, rapidjson_test_module_path):
+    if isinstance(result, str):
+        result = result.format(
+            rapidjson_test_module_path=rapidjson_test_module_path)
+    elif isinstance(result, dict):
+        result['class'] = result['class'].format(
+            rapidjson_test_module_path=rapidjson_test_module_path)
     value = request.getfixturevalue(value_str)
     dumped = dumps(value, yggdrasil_mode=rj.YM_READABLE)
     loaded = loads(dumped)

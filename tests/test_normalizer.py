@@ -72,7 +72,7 @@ def test_normalize_path():
     import os
     normalizer = rj.Normalizer({"type": "function"})
     json = f"./{os.path.basename(__file__)}:filter_func_ex"
-    full = "\"test_normalizer:filter_func_ex\""
+    full = f"\"{__file__}:test_normalizer:filter_func_ex\""
     normalized = normalizer(json, relative_path_root=os.path.dirname(__file__))
     norm = rj.dumps(normalized, yggdrasil_mode=rj.YM_READABLE)
     assert norm == full
