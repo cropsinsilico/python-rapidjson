@@ -70,9 +70,13 @@ def test_normalize(schema, json, normalized):
 
 def test_normalize_path():
     import os
+    import sys
     normalizer = rj.Normalizer({"type": "function"})
     json = f"./{os.path.basename(__file__)}:filter_func_ex"
-    full = f"\"{__file__}:test_normalizer:filter_func_ex\""
+    fname = __file__
+    if sys.platform in ['win32', 'cygwin']:
+        fname = fname.replace('\\', '\\\\')
+    full = f"\"{fname}:test_normalizer:filter_func_ex\""
     normalized = normalizer(json, relative_path_root=os.path.dirname(__file__))
     norm = rj.dumps(normalized, yggdrasil_mode=rj.YM_READABLE)
     assert norm == full
