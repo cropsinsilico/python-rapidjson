@@ -431,6 +431,13 @@ class TestPly:
             assert x_merge3.mesh == x4.mesh
         else:
             assert x_merge3 == x4
+        # merge no copy
+        x1.merge(x2, no_copy=True)
+        assert x1.as_dict() == x3.as_dict()
+        if factory_options.get('obj', False):
+            assert x1.mesh == x3.mesh
+        else:
+            assert x1 == x3
 
     @pytest.mark.parametrize('invalid_factory_options', [
         ({'args': [], 'kwargs': ['faces']}),
