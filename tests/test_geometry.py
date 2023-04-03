@@ -357,9 +357,17 @@ class TestPly:
 
     def test_elements(self, x, y, result, requires_vertex):
         assert x.get_elements("vertex") == result['dict']['vertex']
+        assert x.get("vertex") == result['dict']['vertex']
         assert x.count_elements("vertices") == len(result['dict']['vertex'])
+        with pytest.raises(KeyError):
+            x.get_elements("invalid")
+        assert x.get("invalid", None) is None
         assert y.get_elements("vertex") == result['dict']['vertex']
+        assert y.get("vertex") == result['dict']['vertex']
         assert y.count_elements("vertices") == len(result['dict']['vertex'])
+        with pytest.raises(KeyError):
+            y.get_elements("invalid")
+        assert y.get("invalid", None) is None
 
     def test_array(self, without_array, x,
                    cls, mesh_args_factory, factory_options):

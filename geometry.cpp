@@ -353,6 +353,9 @@ static PyMethodDef ply_methods[] = {
     {"get_elements", (PyCFunction) ply_get_elements,
      METH_VARARGS | METH_KEYWORDS,
      "Get all elements of a given type."},
+    {"get", (PyCFunction) ply_get_elements,
+     METH_VARARGS | METH_KEYWORDS,
+     "Get all elements of a given type."},
     {"add_elements", (PyCFunction) ply_add_elements,
      METH_VARARGS, "Add elements of a given type."},
     {"as_trimesh", (PyCFunction) ply_as_trimesh,
@@ -489,6 +492,9 @@ PyDoc_STRVAR(objwavefront_doc,
 
 // Handle missing properties
 static PyMethodDef objwavefront_methods[] = {
+    {"get", (PyCFunction) objwavefront_get_elements,
+     METH_VARARGS | METH_KEYWORDS,
+     "Get all elements of a given type."},
     {"get_elements", (PyCFunction) objwavefront_get_elements,
      METH_VARARGS | METH_KEYWORDS,
      "Get all elements of a given type."},
@@ -811,16 +817,17 @@ static PyObject* ply_richcompare(PyObject *self, PyObject *other, int op) {
 static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
     const char* elementType0 = 0;
     int asArray = 0;
+    PyObject* defaultRet = NULL;
     
     static char const* kwlist[] = {
 	"name",
+	"default",
 	"as_array",
         NULL
     };
-    
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|p:", (char**) kwlist,
-				     &elementType0, &asArray))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|Op:", (char**) kwlist,
+				     &elementType0, &defaultRet, &asArray))
 	return NULL;
 
     std::string elementType(elementType0);
@@ -850,8 +857,13 @@ static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwar
     }
     const PlyElementSet* elementSet = v->ply->get_element_set(elementType);
     if (elementSet == NULL) {
-	PyErr_SetString(PyExc_KeyError, elementType0);
-	return NULL;
+	if (defaultRet == NULL) {
+	    PyErr_SetString(PyExc_KeyError, elementType0);
+	    return NULL;
+	} else {
+	    Py_INCREF(defaultRet);
+	    return defaultRet;
+	}
     }
     
     if (asArray) {
@@ -2554,16 +2566,18 @@ static PyObject* objwavefront_richcompare(PyObject *self, PyObject *other, int o
 static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
     const char* elementType0 = 0;
     int asArray = 0;
+    PyObject* defaultRet = NULL;
     
     static char const* kwlist[] = {
 	"name",
+	"default",
 	"as_array",
         NULL
     };
     
     
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|p:", (char**) kwlist,
-				     &elementType0, &asArray))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|Op:", (char**) kwlist,
+				     &elementType0, &defaultRet, &asArray))
 	return NULL;
 
     std::string elementType = obj_alias2base(std::string(elementType0));
@@ -2571,8 +2585,13 @@ static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObj
     ObjWavefrontObject* v = (ObjWavefrontObject*) self;
 
     if (v->obj->count_elements(elementType) == 0) {
-	PyErr_SetString(PyExc_KeyError, elementType0);
-	return NULL;
+	if (defaultRet == NULL) {
+	    PyErr_SetString(PyExc_KeyError, elementType0);
+	    return NULL;
+	} else {
+	    Py_INCREF(defaultRet);
+	    return defaultRet;
+	}
     }
     
     PyObject* out = NULL;
