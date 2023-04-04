@@ -11,23 +11,29 @@ import numpy as np
 import rapidjson as rj
 
 
-@pytest.mark.parametrize('value,schema', (
-    (True, {"type": "boolean"}),
-    (None, {"type": "null"}),
-    (int(42), {"type": "integer"}),
-    (42.0, {"type": "number"}),
-    ("hello", {"type": "string"}),
+@pytest.mark.parametrize('value,schema,min_schema', (
+    (True, {"type": "boolean"}, None),
+    (None, {"type": "null"}, None),
+    (int(42), {"type": "integer"}, None),
+    (42.0, {"type": "number"}, None),
+    ("hello", {"type": "string"}, None),
     ([int(1), "hello"], {"type": "array",
                          "items": [{"type": "integer"},
-                                   {"type": "string"}]}),
+                                   {"type": "string"}]}, None),
     ({"a": int(3), "b": "hello"},
      {"type": "object", "properties": {
          "a": {"type": "integer"},
-         "b": {"type": "string"}}})
+         "b": {"type": "string"}}}, None),
+    (np.str_('hello'),
+     {"type": "scalar", "subtype": "string", "encoding": "UCS4",
+      "precision": 20},
+     {"type": "scalar", "subtype": "string", "encoding": "UCS4"})
 ))
-def test_encode_schema(value, schema):
+def test_encode_schema(value, schema, min_schema):
     assert rj.encode_schema(value) == schema
-    assert rj.encode_schema(value, minimal=True) == schema
+    if min_schema is None:
+        min_schema = schema
+    assert rj.encode_schema(value, minimal=True) == min_schema
 
 
 @pytest.mark.parametrize('value_str,schema', (

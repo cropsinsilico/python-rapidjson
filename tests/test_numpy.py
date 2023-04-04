@@ -50,10 +50,18 @@ def test_scalars_as_pure_json(dumps, loads, np_type, result):
     ('U5', ['hello', 'world']),
 ])
 def test_strings(dumps, loads, type_str, values):
+    # Array
     value = np.array(values, dtype=type_str)
     dumped = dumps(value)
     loaded = loads(dumped)
     np.testing.assert_equal(loaded, value)
+    # Scalar
+    scalar = value[0]
+    dumped = dumps(scalar)
+    loaded = loads(dumped)
+    assert loaded == scalar
+    if type_str.startswith('U'):
+        assert isinstance(loaded, np.str_)
 
 
 @pytest.mark.parametrize(
