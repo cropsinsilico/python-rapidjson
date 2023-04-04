@@ -5374,7 +5374,11 @@ static PyObject* validator_generate_data(PyObject* self, PyObject*, PyObject*)
 		      v->numberMode);
     accept = d.Accept(handler);
     if (!accept) {
-	PyErr_SetString(generate_error, "Error converting the generated JSON document to a Python object");
+	GenericStringBuffer<UTF8<> > buf;
+	PrettyWriter<GenericStringBuffer<UTF8<> >, UTF8<>, UTF8<> > writer(buf);
+	d.Accept(writer);
+	PyErr_Format(generate_error,
+		     "Error converting the generated JSON document to a Python object:\n%s", buf.GetString());
 	return NULL;
     }
     

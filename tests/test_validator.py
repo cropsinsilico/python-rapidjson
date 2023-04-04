@@ -263,7 +263,9 @@ def test_compare_schemas(schemaA, schemaB, details):
       "minItems": 3},
      [0, 0, 0, 0], None),
     ({"type": "1darray"},
-     np.zeros((2, ), dtype=np.int32), None)
+     np.zeros((2, ), dtype=np.int32), None),
+    ({"type": "scalar", "subtype": "string", "encoding": "UCS4"},
+     np.str_('abcde'), None)
 ))
 def test_generate_data(schema, result, details):
     if details is None:
