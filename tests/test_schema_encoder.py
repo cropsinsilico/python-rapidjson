@@ -98,7 +98,7 @@ def test_encode_schema_castable(np_type, schema):
 ))
 def test_encode_schema_arrays(np_type, schema):
     minimal_schema = dict(schema, type="ndarray")
-    schema.update({"type": "ndarray", "shape": [3, 4]})
+    full_schema = dict(schema, type="ndarray", shape=[3, 4])
     value = np.ones((3, 4), dtype=np_type)
-    assert rj.encode_schema(value) == schema
+    assert rj.encode_schema(value) == full_schema
     assert rj.encode_schema(value, minimal=True) == minimal_schema
