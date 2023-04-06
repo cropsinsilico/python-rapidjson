@@ -544,3 +544,32 @@ class TestQuantityArray(TestQuantity):
         res = getattr(np, method)([x1, x2])
         assert np.array_equal(res, exp)
         assert res.units == exp.units
+
+
+class TestUnyt:
+
+    @pytest.fixture(autouse=True, scope="class")
+    def unyt(self):
+        try:
+            import unyt as unyt_pkg
+            return unyt_pkg
+        except ImportError:
+            pytest.skip("Unyt not installed")
+
+    def test_scalar(self, unyt, loads, dumps):
+        v = 5.0
+        u = 'cm'
+        x0 = units.Quantity(v, u)
+        x1 = unyt.unyt_quantity(v, u)
+        dumped = dumps(x1)
+        loaded = loads(dumped)
+        assert loaded == x0
+
+    def test_array(self, unyt, loads, dumps):
+        v = 5.0 * np.ones(5)
+        u = 'cm'
+        x0 = units.QuantityArray(v, u)
+        x1 = unyt.unyt_array(v, u)
+        dumped = dumps(x1)
+        loaded = loads(dumped)
+        assert np.array_equal(loaded, x0)
