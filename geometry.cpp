@@ -39,11 +39,11 @@ static PyObject* ply_add_elements(PyObject* self, PyObject* args, PyObject* kwar
 static PyObject* ply_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_from_trimesh(PyObject* cls, PyObject* args, PyObject* kwargs);
 static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs);
-static PyObject* ply_from_dict(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* ply_from_dict(PyObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* ply_as_array_dict(PyObject* self, PyObject* args, PyObject* kwargs);
-static PyObject* ply_from_array_dict(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* ply_from_array_dict(PyObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* ply_as_mesh(PyObject* self, PyObject* args, PyObject* kwargs);
-static PyObject* ply_from_mesh(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* ply_from_mesh(PyObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* ply_count_elements(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_append(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* ply_merge(PyObject* self, PyObject* args, PyObject* kwargs);
@@ -76,13 +76,13 @@ static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObj
 static PyObject* objwavefront_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_from_trimesh(PyObject* cls, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_as_dict(PyObject* self, PyObject* args, PyObject* kwargs);
-static PyObject* objwavefront_from_dict(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* objwavefront_from_dict(PyObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_as_array_dict(PyObject* self, PyObject* args, PyObject* kwargs);
-static PyObject* objwavefront_from_array_dict(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* objwavefront_from_array_dict(PyObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_as_list(PyObject* self, PyObject* args, PyObject* kwargs);
-static PyObject* objwavefront_from_list(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* objwavefront_from_list(PyObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_as_mesh(PyObject* self, PyObject* args, PyObject* kwargs);
-static PyObject* objwavefront_from_mesh(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* objwavefront_from_mesh(PyObject* type, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_count_elements(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject* kwargs);
 static PyObject* objwavefront_merge(PyObject* self, PyObject* args, PyObject* kwargs);
@@ -665,6 +665,9 @@ static PyObject* ply_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 	return NULL;
     if (kwargs && !PyArg_ValidateKeywordArguments(kwargs))
 	return NULL;
+    if (type == NULL) {
+	type = &Ply_Type;
+    }
 
     PlyObject* v = (PlyObject*) type->tp_alloc(type, 0);
     if (v == NULL)
@@ -1407,7 +1410,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 }
 
 
-static PyObject* ply_from_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_from_dict(PyObject* type, PyObject* args, PyObject* kwargs) {
     PyObject* inDict = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inDict))
@@ -1420,7 +1423,7 @@ static PyObject* ply_from_dict(PyObject* self, PyObject* args, PyObject* kwargs)
 
     PyObject* emptyArgs = PyTuple_New(0);
 
-    PyObject* out = ply_new(&Ply_Type, emptyArgs, inDict);
+    PyObject* out = ply_new((PyTypeObject*)type, emptyArgs, inDict);
     
     Py_DECREF(emptyArgs);
     
@@ -1446,7 +1449,7 @@ cleanup:
 	Py_DECREF(kwargs);
     return out;
 }
-static PyObject* ply_from_array_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_from_array_dict(PyObject* type, PyObject* args, PyObject* kwargs) {
     bool dec_kwargs = false;
     PyObject* out = NULL;
     if (kwargs == NULL) {
@@ -1458,7 +1461,7 @@ static PyObject* ply_from_array_dict(PyObject* self, PyObject* args, PyObject* k
     if (PyDict_SetItemString(kwargs, "as_array", Py_True) < 0) {
 	goto cleanup;
     }
-    out = ply_from_dict(self, args, kwargs);
+    out = ply_from_dict(type, args, kwargs);
 cleanup:
     if (dec_kwargs)
 	Py_DECREF(kwargs);
@@ -1520,7 +1523,7 @@ LIST2VECTOR_(double, PyFloat_Check, PyFloat_AsDouble)
 LIST2VECTOR_(int, PyLong_Check, PyLong_AsLong)
 
 
-static PyObject* ply_from_mesh(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_from_mesh(PyObject* type, PyObject* args, PyObject* kwargs) {
     PyObject* meshObj = NULL;
     int pruneDuplicates = 0;
     static char const* kwlist[] = {
@@ -1560,7 +1563,7 @@ static PyObject* ply_from_mesh(PyObject* self, PyObject* args, PyObject* kwargs)
     Py_DECREF(meshList);
 
     PyObject* emptyArgs = PyTuple_New(0);
-    PyObject* out = ply_new(&Ply_Type, emptyArgs, NULL);
+    PyObject* out = ply_new((PyTypeObject*)type, emptyArgs, NULL);
     Py_DECREF(emptyArgs);
     if (out != NULL) {
 	PlyObject* v = (PlyObject*) out;
@@ -2123,6 +2126,9 @@ static PyObject* objwavefront_new(PyTypeObject* type, PyObject* args, PyObject* 
 	return NULL;
     if (kwargs && !PyArg_ValidateKeywordArguments(kwargs))
 	return NULL;
+    if (type == NULL) {
+	type = &ObjWavefront_Type;
+    }
 
     ObjWavefrontObject* v = (ObjWavefrontObject*) type->tp_alloc(type, 0);
     if (v == NULL)
@@ -2931,7 +2937,7 @@ static PyObject* objwavefront_as_dict(PyObject* self, PyObject* args, PyObject* 
 }
 
 
-static PyObject* objwavefront_from_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_dict(PyObject* type, PyObject* args, PyObject* kwargs) {
     PyObject* inDict = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inDict))
@@ -2944,7 +2950,7 @@ static PyObject* objwavefront_from_dict(PyObject* self, PyObject* args, PyObject
 
     PyObject* emptyArgs = PyTuple_New(0);
 
-    PyObject* out = objwavefront_new(&ObjWavefront_Type, emptyArgs, inDict);
+    PyObject* out = objwavefront_new((PyTypeObject*)type, emptyArgs, inDict);
     
     Py_DECREF(emptyArgs);
     
@@ -2970,7 +2976,7 @@ cleanup:
 	Py_DECREF(kwargs);
     return out;
 }
-static PyObject* objwavefront_from_array_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_array_dict(PyObject* type, PyObject* args, PyObject* kwargs) {
     bool dec_kwargs = false;
     PyObject* out = NULL;
     if (kwargs == NULL) {
@@ -2982,7 +2988,7 @@ static PyObject* objwavefront_from_array_dict(PyObject* self, PyObject* args, Py
     if (PyDict_SetItemString(kwargs, "as_array", Py_True) < 0) {
 	goto cleanup;
     }
-    out = objwavefront_from_dict(self, args, kwargs);
+    out = objwavefront_from_dict(type, args, kwargs);
 cleanup:
     if (dec_kwargs)
 	Py_DECREF(kwargs);
@@ -3010,14 +3016,15 @@ static PyObject* objwavefront_as_list(PyObject* self, PyObject*, PyObject*) {
     return out;
 }
 
-static PyObject* objwavefront_from_list(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_list(PyObject* type, PyObject* args, PyObject* kwargs) {
     PyObject* inList = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inList))
 	return NULL;
 
     PyObject* emptyArgs = PyTuple_New(0);
-    PyObject* out = objwavefront_new(&ObjWavefront_Type, emptyArgs, NULL);
+    PyObject* out = objwavefront_new((PyTypeObject*)type,
+				     emptyArgs, NULL);
     Py_DECREF(emptyArgs);
     if (out == NULL)
 	return NULL;
@@ -3028,7 +3035,7 @@ static PyObject* objwavefront_from_list(PyObject* self, PyObject* args, PyObject
     return out;
 }
 
-static PyObject* objwavefront_from_mesh(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_mesh(PyObject* type, PyObject* args, PyObject* kwargs) {
     PyObject* meshObj = NULL;
     int pruneDuplicates = 0;
     static char const* kwlist[] = {
@@ -3068,7 +3075,7 @@ static PyObject* objwavefront_from_mesh(PyObject* self, PyObject* args, PyObject
     Py_DECREF(meshList);
 
     PyObject* emptyArgs = PyTuple_New(0);
-    PyObject* out = objwavefront_new(&ObjWavefront_Type,
+    PyObject* out = objwavefront_new((PyTypeObject*)type,
 				     emptyArgs, NULL);
     Py_DECREF(emptyArgs);
     if (out != NULL) {
