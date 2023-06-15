@@ -38,6 +38,7 @@ def mesh_base():
                      [0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1],
                      [0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0],
                      [0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0]],
+            'areas': [0.5, 0.5, 1.0, 1.0, 1.0, 1.0, 1.0],
             'comments': ['Test comment 1', 'Test comment 2']}
     bounds = (base['vertices'].min(axis=0),
               base['vertices'].max(axis=0))
@@ -59,7 +60,7 @@ def mesh_base():
                 out[k] = np.vstack(arrs) + zero
                 if only_triangles:
                     out[k] = out[k][:, :3]
-            elif k in ['mesh']:
+            elif k in ['mesh', 'areas']:
                 out[k] = copy.deepcopy(base[k])
                 for _ in range(1, stack):
                     out[k] += base[k]
@@ -186,8 +187,10 @@ def mesh_args_factory(mesh_base, mesh_array, mesh_dict):
             base = copy.deepcopy(oresult['dict'])
         if "faces" in args + kwargs:
             oresult['mesh'] = copy.deepcopy(base_['mesh'])
+            oresult['areas'] = copy.deepcopy(base_['areas'])
         else:
             oresult['mesh'] = []
+            oresult['areas'] = []
         if as_list:
             oargs = [base[aliases.get(k, k)].tolist() for k in args]
             okwargs = {k: base[aliases.get(k, k)].tolist() for k in kwargs}
@@ -283,6 +286,11 @@ class TestPly:
             pytest.skip("requires vertex data")
 
     @pytest.fixture(scope="class")
+    def requires_face(self, result):
+        if 'face' not in result['dict']:
+            pytest.skip("requires face data")
+
+    @pytest.fixture(scope="class")
     def without_colors(self, factory_options):
         if factory_options.get('with_colors', False):
             pytest.skip("requires no colors")
@@ -354,6 +362,14 @@ class TestPly:
         assert x.mesh == result['mesh']
         assert y.mesh == result['mesh']
         assert x.mesh == y.mesh
+
+    def test_areas(self, x, y, result, requires_vertex):
+        np.testing.assert_array_equal(np.array(x.areas),
+                                      np.array(result['areas']))
+        np.testing.assert_array_equal(np.array(y.areas),
+                                      np.array(result['areas']))
+        np.testing.assert_array_equal(np.array(x.areas),
+                                      np.array(y.areas))
 
     def test_elements(self, x, y, result, requires_vertex):
         assert x.get_elements("vertex") == result['dict']['vertex']
@@ -497,6 +513,59 @@ class TestPly:
             del trimesh
         except ImportError:
             pytest.skip("Trimesh not installed")
+
+    def test_from_mesh(self, cls, mesh_args_factory,
+                       factory_options, requires_vertex):
+        r"""Test construction from a mesh."""
+        if 'edges' in (factory_options.get('args', [])
+                       + factory_options.get('kwargs', [])):
+            pytest.skip("Edges not supported by mesh")
+        param = mesh_args_factory(**factory_options)
+        x = cls(*param[0], **param[1])
+        mesh = x.mesh
+        y = cls.from_mesh(mesh)
+        assert x.mesh == y.mesh
+        if x.nface == 0:
+            assert y.nvert == 0
+        else:
+            assert x.nvert != y.nvert
+        assert x.nface == y.nface
+        z = cls.from_mesh(mesh, prune_duplicates=True)
+        assert x.mesh == z.mesh
+        if x.nface == 0:
+            assert z.nvert == 0
+        else:
+            assert x.nvert == z.nvert
+        assert x.nface == z.nface
+
+    def test_from_mesh_structured(self, cls, mesh_args_factory,
+                                  factory_options, requires_vertex,
+                                  requires_face):
+        r"""Test construction from a numpy structured array."""
+        from numpy.lib.recfunctions import unstructured_to_structured
+        opts = dict(factory_options, only_triangles=True)
+        param = mesh_args_factory(**opts)
+        x = cls(*param[0], **param[1])
+        field_names = ['x1', 'y1', 'z1',
+                       'x2', 'y2', 'z2',
+                       'x3', 'y3', 'z3']
+        formats = ['f8' for _ in field_names]
+        dtype = np.dtype(dict(names=field_names, formats=formats))
+        mesh = unstructured_to_structured(np.array(x.mesh), dtype=dtype)
+        y = cls.from_mesh(mesh)
+        assert x.mesh == y.mesh
+        if x.nface == 0:
+            assert y.nvert == 0
+        else:
+            assert x.nvert != y.nvert
+        assert x.nface == y.nface
+        z = cls.from_mesh(mesh, prune_duplicates=True)
+        assert x.mesh == z.mesh
+        if x.nface == 0:
+            assert z.nvert == 0
+        else:
+            assert x.nvert == z.nvert
+        assert x.nface == z.nface
 
 
 @pytest.mark.parametrize('factory_options', [
