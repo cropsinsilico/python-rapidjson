@@ -4,7 +4,7 @@
 # :Author:    Martin Thoma <info@martin-thoma.de>
 # :License:   MIT License
 # :Copyright: © 2020 Martin Thoma
-# :Copyright: © 2020, 2021, 2022 Lele Gaifax
+# :Copyright: © 2020, 2021, 2022, 2023 Lele Gaifax
 #
 
 # For more information see:
@@ -27,21 +27,20 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.9]
+        python-version: [3.11]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip setuptools
           pip install -r requirements-test.txt
           pip install .
 
@@ -59,21 +58,20 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.9]
+        python-version: [3.11]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
 
-      - uses: deadsnakes/action@v2.1.1
+      - uses: deadsnakes/action@v3.0.1
         with:
           python-version: ${{ matrix.python-version }}
           debug: true
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade setuptools==59.8.0
           pip install -r requirements-test.txt
           pip install .
 
@@ -86,33 +84,35 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-20.04
-          - macOS-10.15
+          - ubuntu-22.04
+          - macos-12
           - windows-2019
         arch:
           - auto
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             arch: aarch64
+          - os: ubuntu-22.04
+            arch: ppc64le
       fail-fast: false
-
+            
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
 
       - name: Install Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.11'
 
-      - uses: docker/setup-qemu-action@v1
-        if:  ${{ matrix.arch == 'aarch64' }}
+      - uses: docker/setup-qemu-action@v2
+        if:  ${{ matrix.arch == 'aarch64' || matrix.arch == 'ppc64le' }}
         name: Set up QEMU
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.11.1
+        uses: pypa/cibuildwheel@v2.13.1
         env:
           CIBW_ARCHS_LINUX: ${{matrix.arch}}
           CIBW_TEST_REQUIRES: "pytest pytest-benchmark pytz"
@@ -122,7 +122,7 @@ jobs:
           CIBW_BEFORE_BUILD: pip install oldest-supported-numpy
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
 
@@ -138,7 +138,7 @@ jobs:
   #   #if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
 
   #   steps:
-  #     - uses: actions/download-artifact@v2
+  #     - uses: actions/download-artifact@v3
   #       with:
   #         name: artifact
   #         path: dist
