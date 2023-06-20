@@ -92,8 +92,8 @@ jobs:
         include:
           - os: ubuntu-22.04
             arch: aarch64
-          - os: ubuntu-22.04
-            arch: ppc64le
+          # - os: ubuntu-22.04
+          #   arch: ppc64le
       fail-fast: false
             
     steps:
