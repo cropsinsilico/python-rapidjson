@@ -23,6 +23,7 @@ var/
 .installed.cfg
 *.egg
 /rapidjson_exact_version.txt
+_version.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -63,3 +64,4 @@ target/
 # Emacs stuff
 /.emacs.desktop.lock
 /emacs.desktop
+*~

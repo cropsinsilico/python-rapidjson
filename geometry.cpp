@@ -1007,7 +1007,7 @@ static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwar
     
 }
 
-static PyObject* ply_add_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_add_elements(PyObject* self, PyObject* args, PyObject*) {
     const char* name0 = 0;
     PyObject* x = NULL;
     
@@ -1270,7 +1270,7 @@ static PyObject* ply_add_elements(PyObject* self, PyObject* args, PyObject* kwar
 }
 
 
-static PyObject* ply_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_as_trimesh(PyObject* self, PyObject*, PyObject* kwargs) {
     PyObject* dict_args = PyTuple_New(0);
     if (dict_args == NULL)
 	return NULL;
@@ -1291,7 +1291,7 @@ static PyObject* ply_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs
     Py_DECREF(mesh_dict);
     return out;
 }
-static PyObject* ply_from_trimesh(PyObject* cls, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_from_trimesh(PyObject* cls, PyObject* args, PyObject*) {
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
@@ -1410,7 +1410,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 }
 
 
-static PyObject* ply_from_dict(PyObject* type, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_from_dict(PyObject* type, PyObject* args, PyObject*) {
     PyObject* inDict = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inDict))
@@ -1513,7 +1513,7 @@ PyObject* vector2list(const std::vector<T>&) {
     return NULL;
 }
 template<typename T>
-bool list2vector(PyObject* x, std::vector<T>& out) {
+bool list2vector(PyObject*, std::vector<T>&) {
     PyErr_SetString(PyExc_TypeError, "Unsupported type in list2vector");
     return false;
 }
@@ -1594,7 +1594,7 @@ static PyObject* ply_as_mesh(PyObject* self, PyObject*, PyObject*) {
     return out;
 }
 
-static PyObject* ply_count_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_count_elements(PyObject* self, PyObject* args, PyObject*) {
     const char* elementType0 = 0;
     
     if (!PyArg_ParseTuple(args, "s:", &elementType0))
@@ -1616,7 +1616,7 @@ static PyObject* ply_count_elements(PyObject* self, PyObject* args, PyObject* kw
 }
 
 
-static PyObject* ply_append(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_append(PyObject* self, PyObject* args, PyObject*) {
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
@@ -1855,7 +1855,7 @@ static int ply_contains(PyObject* self, PyObject* value) {
 }
 
 
-static PyObject* ply_add_colors(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_add_colors(PyObject* self, PyObject* args, PyObject*) {
     const char* name0 = 0;
     PyObject* x = NULL;
     
@@ -2758,7 +2758,7 @@ static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObj
     
 }
 
-static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObject*) {
     // TODO: Get double & int values to ignore, maybe flag for skipping inc
     const char* name0 = 0;
     PyObject* x = NULL;
@@ -2828,7 +2828,7 @@ static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObj
 
 
 
-static PyObject* objwavefront_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_as_trimesh(PyObject* self, PyObject*, PyObject* kwargs) {
     PyObject* dict_args = PyTuple_New(0);
     if (dict_args == NULL)
 	return NULL;
@@ -2849,7 +2849,7 @@ static PyObject* objwavefront_as_trimesh(PyObject* self, PyObject* args, PyObjec
     Py_DECREF(mesh_dict);
     return out;
 }
-static PyObject* objwavefront_from_trimesh(PyObject* cls, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_trimesh(PyObject* cls, PyObject* args, PyObject*) {
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
@@ -2937,7 +2937,7 @@ static PyObject* objwavefront_as_dict(PyObject* self, PyObject* args, PyObject* 
 }
 
 
-static PyObject* objwavefront_from_dict(PyObject* type, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_dict(PyObject* type, PyObject* args, PyObject*) {
     PyObject* inDict = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inDict))
@@ -3016,7 +3016,7 @@ static PyObject* objwavefront_as_list(PyObject* self, PyObject*, PyObject*) {
     return out;
 }
 
-static PyObject* objwavefront_from_list(PyObject* type, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_list(PyObject* type, PyObject* args, PyObject*) {
     PyObject* inList = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inList))
@@ -3107,7 +3107,7 @@ static PyObject* objwavefront_as_mesh(PyObject* self, PyObject*, PyObject*) {
     return out;
 }
 
-static PyObject* objwavefront_count_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_count_elements(PyObject* self, PyObject* args, PyObject*) {
     const char* elementType0 = 0;
     
     if (!PyArg_ParseTuple(args, "s:", &elementType0))
@@ -3125,7 +3125,7 @@ static PyObject* objwavefront_count_elements(PyObject* self, PyObject* args, PyO
 }
 
 
-static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject*) {
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
@@ -3363,7 +3363,7 @@ static int objwavefront_contains(PyObject* self, PyObject* value) {
 }
 
 
-static PyObject* objwavefront_add_colors(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_add_colors(PyObject* self, PyObject* args, PyObject*) {
     const char* name0 = 0;
     PyObject* x = NULL;
     

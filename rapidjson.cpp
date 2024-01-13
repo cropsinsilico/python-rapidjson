@@ -326,7 +326,7 @@ public:
         assert(false);
     }
 
-    void Put(Ch c) {
+    void Put(Ch) {
         assert(false);
     }
 
@@ -335,7 +335,7 @@ public:
         return 0;
     }
 
-    size_t PutEnd(Ch* begin) {
+    size_t PutEnd(Ch*) {
         assert(false);
         return 0;
     }
@@ -469,7 +469,7 @@ public:
         return 0;
     }
 
-    size_t PutEnd(Ch* begin) {
+    size_t PutEnd(Ch*) {
         assert(false);
         return 0;
     }
@@ -1240,7 +1240,7 @@ struct PyHandler {
         return true;
     }
 
-    bool EndObject(SizeType member_count, bool yggdrasilInstance=false) {
+    bool EndObject(SizeType, bool yggdrasilInstance=false) {
         const HandlerContext& ctx = stack.back();
 
         if (ctx.copiedKey)
@@ -1370,7 +1370,7 @@ struct PyHandler {
         return true;
     }
 
-    bool EndArray(SizeType elementCount) {
+    bool EndArray(SizeType) {
         const HandlerContext& ctx = stack.back();
 
         if (ctx.copiedKey)
@@ -1524,7 +1524,7 @@ struct PyHandler {
         return Handle(value);
     }
 
-    bool RawNumber(const char* str, SizeType length, bool copy) {
+    bool RawNumber(const char* str, SizeType length, bool) {
         PyObject* value;
         bool isFloat = false;
 
@@ -1830,7 +1830,7 @@ struct PyHandler {
     }
 
     template <typename YggSchemaValueType>
-    bool YggdrasilString(const char* str, SizeType length, bool copy, YggSchemaValueType& schema) {
+    bool YggdrasilString(const char* str, SizeType length, bool, YggSchemaValueType& schema) {
 	PyObject* value = NULL;
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value(str, length, allocator, schema);
@@ -1969,7 +1969,7 @@ PyDoc_STRVAR(loads_docstring,
 
 
 static PyObject*
-loads(PyObject* self, PyObject* args, PyObject* kwargs)
+loads(PyObject*, PyObject* args, PyObject* kwargs)
 {
     /* Converts a JSON encoded string to a Python object. */
 
@@ -2084,7 +2084,7 @@ PyDoc_STRVAR(load_docstring,
 
 
 static PyObject*
-load(PyObject* self, PyObject* args, PyObject* kwargs)
+load(PyObject*, PyObject* args, PyObject* kwargs)
 {
     /* Converts a JSON encoded stream to a Python object. */
 
@@ -4180,7 +4180,7 @@ PyDoc_STRVAR(dumps_docstring,
 
 
 static PyObject*
-dumps(PyObject* self, PyObject* args, PyObject* kwargs)
+dumps(PyObject*, PyObject* args, PyObject* kwargs)
 {
     /* Converts a Python object to a JSON-encoded string. */
 
@@ -4309,7 +4309,7 @@ PyDoc_STRVAR(dump_docstring,
 
 
 static PyObject*
-dump(PyObject* self, PyObject* args, PyObject* kwargs)
+dump(PyObject*, PyObject* args, PyObject* kwargs)
 {
     /* Converts a Python object to a JSON-encoded stream. */
 
@@ -4485,13 +4485,13 @@ static PyMemberDef encoder_members[] = {
 
 
 static PyObject*
-encoder_get_skip_invalid_keys(EncoderObject* e, void* closure)
+encoder_get_skip_invalid_keys(EncoderObject* e, void*)
 {
     return PyBool_FromLong(e->mappingMode & MM_SKIP_NON_STRING_KEYS);
 }
 
 static PyObject*
-encoder_get_sort_keys(EncoderObject* e, void* closure)
+encoder_get_sort_keys(EncoderObject* e, void*)
 {
     return PyBool_FromLong(e->mappingMode & MM_SORT_KEYS);
 }
@@ -5161,7 +5161,7 @@ static PyObject* validator_validate(PyObject* self, PyObject* args, PyObject* kw
 { return validator_call(self, args, kwargs); }
 
 
-static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs)
+static PyObject* validator_check_schema(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject;
     PyObject* jsonStandardObj = NULL;
@@ -5401,7 +5401,7 @@ PyDoc_STRVAR(validate_docstring,
 
 
 static PyObject*
-validate(PyObject* self, PyObject* args, PyObject* kwargs)
+validate(PyObject*, PyObject* args, PyObject* kwargs)
 {
 
     if (!PyTuple_Check(args))
@@ -5476,7 +5476,7 @@ PyDoc_STRVAR(encode_schema_docstring,
 
 
 static PyObject*
-encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
+encode_schema(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject;
     int minimalSchema = 0;
@@ -5604,7 +5604,7 @@ PyDoc_STRVAR(get_metaschema_docstring,
 
 
 static PyObject*
-rj_get_metaschema(PyObject* self, PyObject* args, PyObject* kwargs)
+rj_get_metaschema(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject* objectHook = NULL;
     PyObject* numberModeObj = NULL;
@@ -5685,7 +5685,7 @@ PyDoc_STRVAR(compare_schemas_docstring,
 
 
 static PyObject*
-compare_schemas(PyObject* self, PyObject* args, PyObject* kwargs)
+compare_schemas(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject *validatorObject1 = NULL, *validatorObject2 = NULL;
     int dontRaise = 0;
@@ -5759,7 +5759,7 @@ PyDoc_STRVAR(generate_data_docstring,
 
 
 static PyObject*
-generate_data(PyObject* self, PyObject* args, PyObject* kwargs)
+generate_data(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject *validatorObject = NULL;
     static char const* kwlist[] = {
@@ -5803,7 +5803,7 @@ PyDoc_STRVAR(as_pure_json_docstring,
 
 
 static PyObject*
-as_pure_json(PyObject* self, PyObject* args, PyObject* kwargs)
+as_pure_json(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject = NULL;
     PyObject* decoderObject = NULL;
@@ -6345,7 +6345,7 @@ PyDoc_STRVAR(normalize_docstring,
 
 
 static PyObject*
-normalize(PyObject* self, PyObject* args, PyObject* kwargs)
+normalize(PyObject*, PyObject* args, PyObject* kwargs)
 {
 
     if (!PyTuple_Check(args))

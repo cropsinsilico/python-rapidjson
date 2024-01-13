@@ -332,7 +332,7 @@ static void units_dealloc(PyObject* self)
 }
 
 
-static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
+static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject*)
 {
     PyObject* exprObject;
 
@@ -387,7 +387,7 @@ static PyObject* units_str(PyObject* self) {
     return PyUnicode_FromString(s.c_str());
 }
 
-static PyObject* units_is_compatible(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* units_is_compatible(PyObject* self, PyObject* args, PyObject*) {
     PyObject* otherObject;
     const UnitsObject* other;
     
@@ -416,7 +416,7 @@ static PyObject* units_is_compatible(PyObject* self, PyObject* args, PyObject* k
 }
 
 
-static PyObject* units_is_dimensionless(PyObject* self, PyObject* args) {
+static PyObject* units_is_dimensionless(PyObject* self, PyObject*) {
     UnitsObject* v = (UnitsObject*) self;
     bool result = v->units->is_dimensionless();
     if (result) {
@@ -1126,7 +1126,7 @@ static int quantity_array_value_set(PyObject* self, PyObject* value, void*) {
 }
 
 
-static PyObject* quantity_array_is_compatible(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* quantity_array_is_compatible(PyObject* self, PyObject* args, PyObject*) {
     PyObject* otherObject;
     const UnitsObject* other;
     
@@ -1157,7 +1157,7 @@ static PyObject* quantity_array_is_compatible(PyObject* self, PyObject* args, Py
 }
 
 
-static PyObject* quantity_array_is_dimensionless(PyObject* self, PyObject* args) {
+static PyObject* quantity_array_is_dimensionless(PyObject* self, PyObject*) {
     QuantityArrayObject* v = (QuantityArrayObject*) self;
     bool result = v->units->units->is_dimensionless();
     if (result) {
@@ -1365,6 +1365,18 @@ static PyObject* quantity_array__array_ufunc__(PyObject* self, PyObject* args, P
 		Py_DECREF(i0_units);
 		Py_DECREF(tmp);
 		if (result_units == NULL) {
+		    goto cleanup;
+		}
+	    }
+	} else if (ufunc_name == "exp") {
+	    if (_has_units(i0)) {
+		tmp2 = _get_units(i0);
+		if (((UnitsObject*)tmp2)->units->is_null()) {
+		    Py_DECREF(tmp2);
+		    convert_units = get_empty_units();
+		} else {
+		    // Allow radians here?
+		    Py_DECREF(tmp2);
 		    goto cleanup;
 		}
 	    }
@@ -1748,7 +1760,7 @@ static PyObject* quantity_array__array_finalize__(PyObject* self, PyObject* args
 }
 
 
-static PyObject* quantity_array__array_wrap__(PyObject* self, PyObject* args) {
+static PyObject* quantity_array__array_wrap__(PyObject*, PyObject* args) {
     PyObject *array = NULL, *context = NULL;
     if (!PyArg_ParseTuple(args, "OO", array, context)) {
 	return NULL;
