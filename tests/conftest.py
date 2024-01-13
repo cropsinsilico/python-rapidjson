@@ -12,6 +12,17 @@ import os
 import rapidjson as rj
 
 
+@pytest.fixture(autouse=True)
+def add_np(doctest_namespace):
+    doctest_namespace["rj"] = rj
+    doctest_namespace["io"] = io
+    # for k in ["Decoder", "Encoder", "Validator", "RawJSON", "loads",
+    #           "load", "dumps", "dump", "ValidationError", "NM_NAN",
+    #           "NM_NATIVE"]:
+    for k in dir(rj):
+        doctest_namespace[k] = getattr(rj, k)
+
+
 def binary_streaming_dumps(o, **opts):
     stream = io.BytesIO()
     rj.dump(o, stream, **opts)

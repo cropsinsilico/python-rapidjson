@@ -86,11 +86,11 @@
       >>> loads('[NaN, Infinity]', number_mode=NM_NATIVE)
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      rapidjson.JSONDecodeError: … Out of range float values are not JSON compliant
+      rapidjson.JSONDecodeError: Parse error at offset 1: Invalid value.
       >>> loads('[NaN, Infinity]', allow_nan=False)
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      rapidjson.JSONDecodeError: … Out of range float values are not JSON compliant
+      rapidjson.JSONDecodeError: Parse error at offset 1: Invalid value.
 
    Normally all floating point literals present in the JSON structure will be loaded as
    Python :class:`float` instances, with :data:`NM_DECIMAL` they will be returned as
@@ -114,7 +114,7 @@
       >>> loads('123456789012345678901234567890')
       123456789012345678901234567890
       >>> loads('123456789012345678901234567890', number_mode=NM_NATIVE)
-      1.2345678901234566e+29
+      1.2345678901234568e+29
 
    These flags can be combined together:
 
@@ -139,7 +139,7 @@
       ...       number_mode=NM_NATIVE | NM_DECIMAL)
       Traceback (most recent call last):
         ...
-      ValueError: ... Combining NM_NATIVE with NM_DECIMAL is not supported
+      ValueError: Invalid number_mode, combining NM_NATIVE with NM_DECIMAL is not supported
 
 
    .. _loads-datetime-mode:

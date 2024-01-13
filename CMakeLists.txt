@@ -16,8 +16,8 @@ if (NOT EXISTS ${RAPIDJSON_INCLUDE_DIRS})
 endif()
 
 find_package(Python3 COMPONENTS Interpreter Development.Module NumPy REQUIRED)
-if (Python3_VERSION VERSION_LESS "3.6.0")
-  message(FATAL_ERROR "Only Python 3.6+ is supported.")
+if (Python3_VERSION VERSION_LESS "3.8.0")
+  message(FATAL_ERROR "Only Python 3.8+ is supported.")
 endif()
 
 Python3_add_library(
@@ -58,11 +58,11 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # "long long" as an error under C++ (see issue #69). C++11 is required
   # since commit
   # https://github.com/Tencent/rapidjson/commit/9965ab37f6cfae3d58a0a6e34c76112866ace0b1
-  list(APPEND CMAKE_CXX_FLAGS -pedantic -Wno-long-long) # -std=c++11
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -Wno-long-long") # -std=c++11
   # Up to Python 3.7, some structures use "char*" instead of "const char*",
   # and ISO C++ forbids assigning string literal constants
   if (Python3_VERSION VERSION_LESS "3.7.0")
-    list(APPEND CMAKE_CXX_FLAGS -Wno-write-strings)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-write-strings")
   endif()
 endif()
 

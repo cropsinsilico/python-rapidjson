@@ -28,7 +28,6 @@ classifiers = [
     "Programming Language :: C++",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -61,4 +60,6 @@ content-type = "text/x-rst"
 path = "README.rst"
 
 [tool.pytest.ini]
-norecursedirs = ["*.egg", ".tox"]
+norecursedirs = ["*.egg", ".tox", "rapidjson"]
+addopts = ["--verbose", "-s", "--ignore=rapidjson/thirdparty"]
+

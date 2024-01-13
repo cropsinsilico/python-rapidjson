@@ -7,5 +7,6 @@ pip install --config-settings=cmake.define.RAPIDJSON_INCLUDE_DIRS=../rapidjson/i
     -v -e .
 # export DYLD_INSERT_LIBRARIES=/Users/langmm/mambaforge/envs/pyrj/lib/clang/14.0.6/lib/darwin/libclang_rt.asan_osx_dynamic.dylib
 export DYLD_INSERT_LIBRARIES=$(clang -print-file-name=libclang_rt.asan_osx_dynamic.dylib)
-python -m pytest -svx tests/
-make -C docs doctest -e PYTHON=$(which python3) -e DYLD_INSERT_LIBRARIES=$(clang -print-file-name=libclang_rt.asan_osx_dynamic.dylib)
+export PYTHON=$(python -c "import sys; import pathlib; print(pathlib.Path(sys.executable).resolve(strict=True))")
+python -m pytest -svx tests/ --doctest-glob="docs/*.rst" --doctest-modules docs
+# make -C docs doctest -e PYTHON=$(python -c "import sys; import pathlib; print(pathlib.Path(sys.executable).resolve(strict=True))") -e DYLD_INSERT_LIBRARIES=$(clang -print-file-name=libclang_rt.asan_osx_dynamic.dylib)
