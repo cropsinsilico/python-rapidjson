@@ -3438,7 +3438,7 @@ static PyObject* objwavefront_add_colors(PyObject* self, PyObject* args, PyObjec
 		return NULL;
 	    }
 	}
-	SizeType xn = PyList_Size(x), xm = 3;
+	SizeType xn = static_cast<SizeType>(PyList_Size(x)), xm = 3;
 	if (!v->obj->add_element_set_colors(name, values.data(), xn, xm)) {
 	    PyErr_SetString(geom_error, "Error adding colors array.");
 	    return NULL;

@@ -289,7 +289,7 @@ public:
     PyReadStreamWrapper(PyObject* stream, size_t size)
         : stream(stream) {
         Py_INCREF(stream);
-        chunkSize = PyLong_FromUnsignedLong(size);
+        chunkSize = PyLong_FromUnsignedLong(static_cast<unsigned long>(size));
         buffer = NULL;
         chunk = NULL;
         chunkLen = 0;
@@ -600,7 +600,7 @@ accept_indent_arg(PyObject* arg, unsigned &write_mode, unsigned &indent_count,
             Py_ssize_t len;
             const char* indentStr = PyUnicode_AsUTF8AndSize(arg, &len);
 
-            indent_count = len;
+            indent_count = static_cast<unsigned>(len);
             if (indent_count) {
                 indent_char = '\0';
                 while (len--) {
@@ -854,17 +854,28 @@ static unsigned check_expectsString(Document& d) {
 	return 0;
     {
 	Value::ConstMemberIterator it = d.FindMember("type");
-	if ((it != d.MemberEnd()) && it->value.IsString()) {
-	    if (strcmp(it->value.GetString(), "string") == 0)
-		return 1;
+	if (it != d.MemberEnd()) {
+	    if (it->value.IsString()) {
+		if ((it->value == Value::GetStringString()) ||
+		    (it->value == Value::GetPythonFunctionString()) ||
+		    (it->value == Value::GetPythonClassString()) ||
+		    (it->value == Value::GetPythonInstanceString()))
+		    return 1;
+	    } else if (it->value.IsArray()) {
+		if (it->value.Contains(Value::GetStringString()) ||
+		    it->value.Contains(Value::GetPythonFunctionString()) ||
+		    it->value.Contains(Value::GetPythonClassString()) ||
+		    it->value.Contains(Value::GetPythonInstanceString()))
+		    return 1;
+	    }
 	}
     }
     {
 	Value::ConstMemberIterator it = d.FindMember("subtype");
 	if ((it != d.MemberEnd()) && it->value.IsString()) {
-	    if ((strcmp(it->value.GetString(), "bytes") == 0) ||
-		(strcmp(it->value.GetString(), "string") == 0) ||
-		(strcmp(it->value.GetString(), "unicode") == 0))
+	    if ((it->value == Value::GetBytesString()) ||
+		(it->value == Value::GetStringString()) ||
+		(it->value == Value::GetUnicodeString()))
 		return 1;
 	}
     }
@@ -904,7 +915,7 @@ static bool isPaddedStr(const char* str, size_t str_len,
 }
 
 static bool endsWith(const char* jsonStr, size_t len, const char check) {
-    size_t i = len - 1;
+    int i = static_cast<int>(len) - 1;
     while (i >= 0) {
 	switch (jsonStr[i]) {
 	case ' ':
@@ -3285,7 +3296,8 @@ PythonAccept(
 	bool ret = x->SetPythonObjectRaw(object, allocator);
 	if (ret) {
 	    std::string unitsS = v->units->units->str();
-	    ret = x->SetUnits(unitsS.c_str(), unitsS.length());
+	    ret = x->SetUnits(unitsS.c_str(),
+			      static_cast<SizeType>(unitsS.length()));
 	}
 	if (ret)
 	    ret = x->Accept(*handler);
@@ -3438,8 +3450,8 @@ static bool python2document(PyObject* jsonObject, Document& d,
     bool error;
     bool empty = false;
 
-    if ((jsonStr != NULL) && (!isJSONDocument(jsonStr, jsonStrLen, &empty,
-					      expectsString)))
+    if ((jsonStr != NULL) && (!forSchema) && expectsString &&
+	(!isJSONDocument(jsonStr, jsonStrLen, &empty, expectsString)))
 	jsonStr = NULL;
 
     if (jsonStr == NULL) {

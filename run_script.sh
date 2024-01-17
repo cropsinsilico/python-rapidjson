@@ -9,4 +9,5 @@ pip install --config-settings=cmake.define.RAPIDJSON_INCLUDE_DIRS=../rapidjson/i
 export DYLD_INSERT_LIBRARIES=$(clang -print-file-name=libclang_rt.asan_osx_dynamic.dylib)
 export PYTHON=$(python -c "import sys; import pathlib; print(pathlib.Path(sys.executable).resolve(strict=True))")
 python -m pytest -svx tests/ --doctest-glob="docs/*.rst" --doctest-modules docs
+# python -m pytest -svx tests/test_normalizer.py::test_invalid_schema --doctest-glob="docs/*.rst" --doctest-modules docs
 # make -C docs doctest -e PYTHON=$(python -c "import sys; import pathlib; print(pathlib.Path(sys.executable).resolve(strict=True))") -e DYLD_INSERT_LIBRARIES=$(clang -print-file-name=libclang_rt.asan_osx_dynamic.dylib)

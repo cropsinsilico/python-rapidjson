@@ -2353,8 +2353,8 @@ static int _copy_array_into(PyObject* dst, PyObject* src, bool copyFlags) {
     PyObject *arr = NULL;
     PyArrayObject* arr_cast = NULL;
     PyArray_Descr *dtype = NULL;
-    int ndim = 0, flags = NPY_ARRAY_DEFAULT, old_flags = 0, nbytes = 1;
-    npy_intp *dims = NULL, *strides = NULL;
+    int ndim = 0, flags = NPY_ARRAY_DEFAULT, old_flags = 0;
+    npy_intp *dims = NULL, *strides = NULL, nbytes = 1;
     PyArrayObject_fields* fa = NULL;
     char* data = NULL;
     arr = _get_array(src);
