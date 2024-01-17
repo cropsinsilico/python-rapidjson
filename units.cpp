@@ -341,7 +341,7 @@ static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject*)
 
     std::string exprStr_;
     const char* exprStr = 0;
-    const UnitsObject* other;
+    const UnitsObject* other = NULL;
 
     if (PyBytes_Check(exprObject)) {
         exprStr = PyBytes_AsString(exprObject);
@@ -366,7 +366,7 @@ static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject*)
 
     if (exprStr) {
 	v->units = new Units(exprStr);
-    } else {
+    } else if (other) {
 	exprStr_ = other->units->str();
 	exprStr = exprStr_.c_str();
 	v->units = new Units(*other->units);

@@ -1644,14 +1644,29 @@ struct PyHandler {
 
         switch (usecLength) {
             case 9: if (!isdigit(str[17])) { return false; }
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
             case 8: if (!isdigit(str[16])) { return false; }
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
             case 7: if (!isdigit(str[15])) { return false; }
-            case 6: if (!isdigit(str[14])) { return false; } usecs += digit(14);
-            case 5: if (!isdigit(str[13])) { return false; } usecs += digit(13)*10;
-            case 4: if (!isdigit(str[12])) { return false; } usecs += digit(12)*100;
-            case 3: if (!isdigit(str[11])) { return false; } usecs += digit(11)*1000;
-            case 2: if (!isdigit(str[10])) { return false; } usecs += digit(10)*10000;
-            case 1: if (!isdigit(str[9])) { return false; } usecs += digit(9)*100000;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 6: if (!isdigit(str[14])) { return false; }
+		usecs += digit(14);
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 5: if (!isdigit(str[13])) { return false; }
+		usecs += digit(13)*10;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 4: if (!isdigit(str[12])) { return false; }
+		usecs += digit(12)*100;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 3: if (!isdigit(str[11])) { return false; }
+		usecs += digit(11)*1000;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 2: if (!isdigit(str[10])) { return false; }
+		usecs += digit(10)*10000;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 1: if (!isdigit(str[9])) { return false; }
+		usecs += digit(9)*100000;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
         }
 
         return true;
@@ -5020,13 +5035,13 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     }
     bool accept;
 
-    if (validator.RequiresPython() || d.RequiresPython()) {
-	accept = d.Accept(validator);
-    } else {
-	Py_BEGIN_ALLOW_THREADS
-	accept = d.Accept(validator);
-	Py_END_ALLOW_THREADS
-    }
+    // if (validator.RequiresPython() || d.RequiresPython()) {
+    // 	accept = d.Accept(validator);
+    // } else {
+    Py_BEGIN_ALLOW_THREADS
+    accept = d.Accept(validator);
+    Py_END_ALLOW_THREADS
+    // }
 
     if (!cleanup_python_globals(d, isPythonDoc))
 	return NULL;
@@ -5279,13 +5294,13 @@ static PyObject* validator_check_schema(PyObject*, PyObject* args, PyObject* kwa
     SchemaValidator validator(metaschema);
     bool accept;
 
-    if (validator.RequiresPython() || d.RequiresPython()) {
-	accept = d.Accept(validator);
-    } else {
-	Py_BEGIN_ALLOW_THREADS
-	accept = d.Accept(validator);
-	Py_END_ALLOW_THREADS
-    }
+    // if (validator.RequiresPython() || d.RequiresPython()) {
+    // 	accept = d.Accept(validator);
+    // } else {
+    Py_BEGIN_ALLOW_THREADS
+    accept = d.Accept(validator);
+    Py_END_ALLOW_THREADS
+    // }
 
     if (!accept) {
 	set_validation_error(validator);
@@ -5341,13 +5356,13 @@ static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwa
     SchemaValidator v2(*((ValidatorObject*)validator2)->schema);
     bool accept;
     
-    if (v1.RequiresPython() || v2.RequiresPython()) {
-	accept = v1.Compare(v2);
-    } else {
-	Py_BEGIN_ALLOW_THREADS
-	accept = v1.Compare(v2);
-	Py_END_ALLOW_THREADS
-    }
+    // if (v1.RequiresPython() || v2.RequiresPython()) {
+    // 	accept = v1.Compare(v2);
+    // } else {
+    Py_BEGIN_ALLOW_THREADS
+    accept = v1.Compare(v2);
+    Py_END_ALLOW_THREADS
+    // }
 
     Py_DECREF(validator2);
     if (!accept) {
@@ -6048,13 +6063,13 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
     }
     bool accept;
 
-    if (normalizer.RequiresPython() || d.RequiresPython()) {
-	accept = d.Accept(normalizer);
-    } else {
-	Py_BEGIN_ALLOW_THREADS
-        accept = d.Accept(normalizer);
-	Py_END_ALLOW_THREADS
-    }
+    // if (normalizer.RequiresPython() || d.RequiresPython()) {
+    // 	accept = d.Accept(normalizer);
+    // } else {
+    Py_BEGIN_ALLOW_THREADS
+    accept = d.Accept(normalizer);
+    Py_END_ALLOW_THREADS
+    // }
 
     if (!accept) {
 	if (isEmptyString) {
@@ -6238,13 +6253,13 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
     SchemaValidator validator(*(v->schema));
     bool accept;
 
-    if (validator.RequiresPython() || d.RequiresPython()) {
-	accept = d.Accept(validator);
-    } else {
-	Py_BEGIN_ALLOW_THREADS
-	accept = d.Accept(validator);
-	Py_END_ALLOW_THREADS
-    }
+    // if (validator.RequiresPython() || d.RequiresPython()) {
+    // 	accept = d.Accept(validator);
+    // } else {
+    Py_BEGIN_ALLOW_THREADS
+    accept = d.Accept(validator);
+    Py_END_ALLOW_THREADS
+    // }
 
     if (!accept) {
 	if (isEmptyString) {
@@ -6285,13 +6300,13 @@ static PyObject* normalizer_compare(PyObject* self, PyObject* args, PyObject* kw
     SchemaValidator v1(*((NormalizerObject*)self)->schema);
     SchemaValidator v2(*((NormalizerObject*)validator2)->schema);
     bool accept;
-    if (v1.RequiresPython() || v2.RequiresPython()) {
-	accept = v1.Compare(v2);
-    } else {
-	Py_BEGIN_ALLOW_THREADS
-	accept = v1.Compare(v2);
-	Py_END_ALLOW_THREADS
-    }
+    // if (v1.RequiresPython() || v2.RequiresPython()) {
+    // 	accept = v1.Compare(v2);
+    // } else {
+    Py_BEGIN_ALLOW_THREADS
+    accept = v1.Compare(v2);
+    Py_END_ALLOW_THREADS
+    // }
     Py_DECREF(validator2);
     if (!accept) {
 	if (dontRaise) {
