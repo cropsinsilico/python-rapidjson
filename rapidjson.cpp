@@ -1666,7 +1666,6 @@ struct PyHandler {
 		RAPIDJSON_DELIBERATE_FALLTHROUGH;
             case 1: if (!isdigit(str[9])) { return false; }
 		usecs += digit(9)*100000;
-		RAPIDJSON_DELIBERATE_FALLTHROUGH;
         }
 
         return true;
