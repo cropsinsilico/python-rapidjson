@@ -810,7 +810,7 @@ accept_chunk_size_arg(PyObject* arg, size_t &chunk_size)
     if (arg != NULL && arg != Py_None) {
         if (PyLong_Check(arg)) {
             Py_ssize_t size = PyNumber_AsSsize_t(arg, PyExc_ValueError);
-            if (PyErr_Occurred() || size < 4 || size > UINT_MAX) {
+            if (PyErr_Occurred() || size < 4 || size > static_cast<Py_ssize_t>(UINT_MAX)) {
                 PyErr_SetString(PyExc_ValueError, "Invalid chunk_size, out of range");
                 return false;
             }
@@ -2257,7 +2257,7 @@ load(PyObject*, PyObject* args, PyObject* kwargs)
     if (chunkSizeObj && chunkSizeObj != Py_None) {
         if (PyLong_Check(chunkSizeObj)) {
             Py_ssize_t size = PyNumber_AsSsize_t(chunkSizeObj, PyExc_ValueError);
-            if (PyErr_Occurred() || size < 4 || size > UINT_MAX) {
+            if (PyErr_Occurred() || size < 4 || size > static_cast<Py_ssize_t>(UINT_MAX)) {
                 PyErr_SetString(PyExc_ValueError,
                                 "Invalid chunk_size, must be an integer between 4 and"
                                 " UINT_MAX");
@@ -2531,7 +2531,7 @@ decoder_call(PyObject* self, PyObject* args, PyObject* kwargs)
     if (chunkSizeObj && chunkSizeObj != Py_None) {
         if (PyLong_Check(chunkSizeObj)) {
             Py_ssize_t size = PyNumber_AsSsize_t(chunkSizeObj, PyExc_ValueError);
-            if (PyErr_Occurred() || size < 4 || size > UINT_MAX) {
+            if (PyErr_Occurred() || size < 4 || size > static_cast<Py_ssize_t>(UINT_MAX)) {
                 PyErr_SetString(PyExc_ValueError,
                                 "Invalid chunk_size, must be an integer between 4 and"
                                 " UINT_MAX");
@@ -2760,7 +2760,7 @@ PythonAccept(
 				yggdrasilMode)
 
 #define ASSERT_VALID_SIZE(l) do {                                       \
-    if (l < 0 || l > UINT_MAX) {                                        \
+    if (l < 0 || l > static_cast<Py_ssize_t>(UINT_MAX)) {		\
         PyErr_SetString(PyExc_ValueError, "Out of range string size");  \
         return false;                                                   \
     } } while(0)
@@ -3508,7 +3508,7 @@ dumps_internal(
 				  yggdrasilMode)
 
 #define ASSERT_VALID_SIZE(l) do {                                       \
-    if (l < 0 || l > UINT_MAX) {                                        \
+    if (l < 0 || l > static_cast<Py_ssize_t>(UINT_MAX)) {		\
         PyErr_SetString(PyExc_ValueError, "Out of range string size");  \
         return false;                                                   \
     } } while(0)
