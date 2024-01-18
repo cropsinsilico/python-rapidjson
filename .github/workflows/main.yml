@@ -16,7 +16,7 @@ name: Build, test and upload to PyPI
 
 on:
   push:
-    branches: [ yggdrasil ]
+    branches: [ yggdrasil, simple ]
   pull_request:
     branches: [ yggdrasil ]
 
