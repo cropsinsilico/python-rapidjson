@@ -186,6 +186,8 @@ PyDoc_STRVAR(units_doc,
              " `expression` string.");
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static PyMethodDef units_methods[] = {
     {"is_compatible", (PyCFunction) units_is_compatible, METH_VARARGS,
      "Check if a set of units are compatible with another set."},
@@ -636,7 +638,7 @@ static PyGetSetDef quantity_array_properties[] = {
     {"units", quantity_array_units_get, quantity_array_units_set,
      "The rapidjson.units.Units units for the quantity.", NULL},
     {"value", quantity_array_value_get, quantity_array_value_set,
-     "The quantity's value (in the current unit system)."},
+     "The quantity's value (in the current unit system).", NULL},
     {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 

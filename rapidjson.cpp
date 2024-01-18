@@ -540,7 +540,7 @@ static PyMemberDef RawJSON_members[] = {
     {"value",
      T_OBJECT_EX, offsetof(RawJSON, value), READONLY,
      "string representing a serialized JSON object"},
-    {NULL}  /* Sentinel */
+    {NULL, 0, 0, 0, NULL}  /* Sentinel */
 };
 
 
@@ -2319,7 +2319,7 @@ static PyMemberDef decoder_members[] = {
     {"parse_mode",
      T_UINT, offsetof(DecoderObject, parseMode), READONLY,
      "The parse mode, whether comments and trailing commas are allowed."},
-    {NULL}
+    {NULL, 0, 0, 0, NULL}  /* Sentinel */
 };
 
 
@@ -4549,7 +4549,7 @@ static PyMemberDef encoder_members[] = {
     {"yggdrasil_mode",
      T_UINT, offsetof(EncoderObject, yggdrasilMode), READONLY,
      "Whether yggdrasil extension values shall be encoded in base64 or not."},
-    {NULL}
+    {NULL, 0, 0, 0, NULL}  /* Sentinel */
 };
 
 
@@ -4569,10 +4569,10 @@ encoder_get_sort_keys(EncoderObject* e, void*)
 
 static PyGetSetDef encoder_props[] = {
     {"skip_invalid_keys", (getter) encoder_get_skip_invalid_keys, NULL,
-     "Whether invalid keys shall be skipped."},
+     "Whether invalid keys shall be skipped.", NULL},
     {"sort_keys", (getter) encoder_get_sort_keys, NULL,
-     "Whether dictionary keys shall be sorted alphabetically."},
-    {NULL}
+     "Whether dictionary keys shall be sorted alphabetically.", NULL},
+    {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
 static PyTypeObject Encoder_Type = {

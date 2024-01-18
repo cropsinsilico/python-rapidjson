@@ -355,6 +355,8 @@ PyDoc_STRVAR(ply_doc,
 
 
 // Handle missing properties
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static PyMethodDef ply_methods[] = {
     {"get_elements", (PyCFunction) ply_get_elements,
      METH_VARARGS | METH_KEYWORDS,
@@ -519,6 +521,8 @@ PyDoc_STRVAR(objwavefront_doc,
 
 
 // Handle missing properties
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static PyMethodDef objwavefront_methods[] = {
     {"get", (PyCFunction) objwavefront_get_elements,
      METH_VARARGS | METH_KEYWORDS,
