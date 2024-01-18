@@ -197,7 +197,7 @@ static PyMethodDef units_methods[] = {
     {"__setstate__", (PyCFunction) units__setstate__,
      METH_O,
      "Set the instance state."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, NULL} /* sentinel */
 };
 
 
@@ -285,6 +285,20 @@ static PyTypeObject Units_Type = {
     0,                              /* tp_alloc */
     units_new,                      /* tp_new */
     PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0                               /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                               /* tp_watched */
+#endif
 };
 
 
@@ -586,6 +600,8 @@ PyDoc_STRVAR(quantity_array_doc,
              " `value` and `units` string or Units instance.");
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static PyMethodDef quantity_array_methods[] = {
     {"is_compatible", (PyCFunction) quantity_array_is_compatible, METH_VARARGS,
      "Check if a set of units or quantity is compatible with another set."},
@@ -612,7 +628,7 @@ static PyMethodDef quantity_array_methods[] = {
     {"__setstate__", (PyCFunction) quantity_array__setstate__,
      METH_O,
      "Set the instance state."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, NULL} /* sentinel */
 };
 
 
@@ -621,7 +637,7 @@ static PyGetSetDef quantity_array_properties[] = {
      "The rapidjson.units.Units units for the quantity.", NULL},
     {"value", quantity_array_value_get, quantity_array_value_set,
      "The quantity's value (in the current unit system)."},
-    {NULL}
+    {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
 
@@ -672,6 +688,20 @@ static PyTypeObject QuantityArray_Type = {
     0,                                    /* tp_alloc */
     quantity_array_new,                   /* tp_new */
     PyObject_Del,                         /* tp_free */
+    NULL,                                 /* tp_is_gc */
+    NULL,                                 /* tp_bases */
+    NULL,                                 /* tp_mro */
+    NULL,                                 /* tp_cache */
+    NULL,                                 /* tp_subclasses */
+    NULL,                                 /* tp_weaklist */
+    0,                                    /* tp_del */
+    0,                                    /* tp_version_tag */
+    0,                                    /* tp_finalize */
+    0                                     /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                                     /* tp_watched */
+#endif
 };
 
 
@@ -731,6 +761,20 @@ static PyTypeObject Quantity_Type = {
     0,                              /* tp_alloc */
     quantity_new,                   /* tp_new */
     PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0                               /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                               /* tp_watched */
+#endif
 };
 
 /////////////////////////////

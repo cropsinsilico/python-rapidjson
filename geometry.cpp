@@ -412,7 +412,7 @@ static PyMethodDef ply_methods[] = {
     {"__setstate__", (PyCFunction) ply__setstate__,
      METH_O,
      "Set the instance state."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, NULL} /* sentinel */
 };
 
 
@@ -427,7 +427,7 @@ static PyGetSetDef ply_properties[] = {
      "The number of vertices in the structure.", NULL},
     {"nface", ply_nface, NULL,
      "The number of faces in the structure.", NULL},
-    {NULL}
+    {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
 
@@ -483,6 +483,20 @@ static PyTypeObject Ply_Type = {
     0,                              /* tp_alloc */
     ply_new,                        /* tp_new */
     PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0                               /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                               /* tp_watched */
+#endif
 };
 
 
@@ -568,7 +582,7 @@ static PyMethodDef objwavefront_methods[] = {
     {"__setstate__", (PyCFunction) objwavefront__setstate__,
      METH_O,
      "Set the instance state."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, NULL} /* sentinel */
 };
 
 
@@ -583,7 +597,7 @@ static PyGetSetDef objwavefront_properties[] = {
      "The number of vertices in the structure.", NULL},
     {"nface", objwavefront_nface, NULL,
      "The number of faces in the structure.", NULL},
-    {NULL}
+    {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
 
@@ -638,6 +652,20 @@ static PyTypeObject ObjWavefront_Type = {
     0,                                  /* tp_alloc */
     objwavefront_new,                   /* tp_new */
     PyObject_Del,                       /* tp_free */
+    NULL,                               /* tp_is_gc */
+    NULL,                               /* tp_bases */
+    NULL,                               /* tp_mro */
+    NULL,                               /* tp_cache */
+    NULL,                               /* tp_subclasses */
+    NULL,                               /* tp_weaklist */
+    0,                                  /* tp_del */
+    0,                                  /* tp_version_tag */
+    0,                                  /* tp_finalize */
+    0                                   /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                                   /* tp_watched */
+#endif
 };
 
 

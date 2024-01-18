@@ -586,6 +586,21 @@ static PyTypeObject RawJSON_Type = {
     0,                              /* tp_init */
     0,                              /* tp_alloc */
     RawJSON_new,                    /* tp_new */
+    PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0                               /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                               /* tp_watched */
+#endif
 };
 
 
@@ -2342,6 +2357,20 @@ static PyTypeObject Decoder_Type = {
     0,                                        /* tp_alloc */
     decoder_new,                              /* tp_new */
     PyObject_Del,                             /* tp_free */
+    NULL,                                     /* tp_is_gc */
+    NULL,                                     /* tp_bases */
+    NULL,                                     /* tp_mro */
+    NULL,                                     /* tp_cache */
+    NULL,                                     /* tp_subclasses */
+    NULL,                                     /* tp_weaklist */
+    0,                                        /* tp_del */
+    0,                                        /* tp_version_tag */
+    0,                                        /* tp_finalize */
+    0                                         /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                                         /* tp_watched */
+#endif
 };
 
 
@@ -4580,6 +4609,20 @@ static PyTypeObject Encoder_Type = {
     0,                                        /* tp_alloc */
     encoder_new,                              /* tp_new */
     PyObject_Del,                             /* tp_free */
+    NULL,                                     /* tp_is_gc */
+    NULL,                                     /* tp_bases */
+    NULL,                                     /* tp_mro */
+    NULL,                                     /* tp_cache */
+    NULL,                                     /* tp_subclasses */
+    NULL,                                     /* tp_weaklist */
+    0,                                        /* tp_del */
+    0,                                        /* tp_version_tag */
+    0,                                        /* tp_finalize */
+    0                                         /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                                         /* tp_watched */
+#endif
 };
 
 
@@ -4946,6 +4989,8 @@ PyDoc_STRVAR(validator_doc,
              " string or Python dictionary.");
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static PyMethodDef validator_methods[] = {
     {"validate", (PyCFunction) validator_validate,
      METH_VARARGS | METH_KEYWORDS,
@@ -4960,7 +5005,7 @@ static PyMethodDef validator_methods[] = {
     {"check_schema", (PyCFunction) validator_check_schema,
      METH_VARARGS | METH_KEYWORDS | METH_CLASS,
      "Validate a schema against the JSON metaschema."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, ""}  /* Sentinel */
 };
 
 
@@ -5004,6 +5049,20 @@ static PyTypeObject Validator_Type = {
     0,                              /* tp_alloc */
     validator_new,                  /* tp_new */
     PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0                               /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                               /* tp_watched */
+#endif
 };
 
 
@@ -5975,6 +6034,8 @@ PyDoc_STRVAR(normalizer_doc,
              " string or Python dictionary.");
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static PyMethodDef normalizer_methods[] = {
     {"validate", (PyCFunction) normalizer_validate,
      METH_VARARGS | METH_KEYWORDS,
@@ -5991,7 +6052,7 @@ static PyMethodDef normalizer_methods[] = {
     {"check_schema", (PyCFunction) normalizer_check_schema,
      METH_VARARGS | METH_KEYWORDS | METH_CLASS,
      "Validate a schema against the JSON metaschema."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, ""}  /* Sentinel */
 };
 
 
@@ -6035,6 +6096,20 @@ static PyTypeObject Normalizer_Type = {
     0,                              /* tp_alloc */
     normalizer_new,                 /* tp_new */
     PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0                               /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    ,
+    0                               /* tp_watched */
+#endif
 };
 
 
@@ -6515,6 +6590,8 @@ add_submodule(PyObject* m, const char* cname, PyModuleDef* module_def) {
 }
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
 static PyMethodDef functions[] = {
     {"loads", (PyCFunction) loads, METH_VARARGS | METH_KEYWORDS,
      loads_docstring},
