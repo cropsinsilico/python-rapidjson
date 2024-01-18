@@ -186,8 +186,12 @@ PyDoc_STRVAR(units_doc,
              " `expression` string.");
 
 
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef units_methods[] = {
     {"is_compatible", (PyCFunction) units_is_compatible, METH_VARARGS,
      "Check if a set of units are compatible with another set."},
@@ -201,6 +205,11 @@ static PyMethodDef units_methods[] = {
      "Set the instance state."},
     {NULL, NULL, 0, NULL} /* sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static PyNumberMethods units_number_methods = {
@@ -253,7 +262,7 @@ static PyTypeObject Units_Type = {
     sizeof(UnitsObject),            /* tp_basicsize */
     0,                              /* tp_itemsize */
     (destructor) units_dealloc,     /* tp_dealloc */
-    0,                              /* tp_print */
+    0,                              /* tp_print or tp_vectorcall_offset */
     0,                              /* tp_getattr */
     0,                              /* tp_setattr */
     0,                              /* tp_compare */
@@ -296,10 +305,9 @@ static PyTypeObject Units_Type = {
     0,                              /* tp_del */
     0,                              /* tp_version_tag */
     0,                              /* tp_finalize */
-    0                               /* tp_vectorcall */
+    0,                              /* tp_vectorcall */
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
-    ,
-    0                               /* tp_watched */
+    0,                              /* tp_watched */
 #endif
 };
 
@@ -602,8 +610,12 @@ PyDoc_STRVAR(quantity_array_doc,
              " `value` and `units` string or Units instance.");
 
 
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef quantity_array_methods[] = {
     {"is_compatible", (PyCFunction) quantity_array_is_compatible, METH_VARARGS,
      "Check if a set of units or quantity is compatible with another set."},
@@ -632,6 +644,11 @@ static PyMethodDef quantity_array_methods[] = {
      "Set the instance state."},
     {NULL, NULL, 0, NULL} /* sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static PyGetSetDef quantity_array_properties[] = {
@@ -656,7 +673,7 @@ static PyTypeObject QuantityArray_Type = {
     sizeof(QuantityArrayObject),          /* tp_basicsize */
     0,                                    /* tp_itemsize */
     (destructor) quantity_array_dealloc,  /* tp_dealloc */
-    0,                                    /* tp_print */
+    0,                                    /* tp_print or tp_vectorcall_offset */
     0,                                    /* tp_getattr */
     0,                                    /* tp_setattr */
     0,                                    /* tp_compare */
@@ -699,10 +716,9 @@ static PyTypeObject QuantityArray_Type = {
     0,                                    /* tp_del */
     0,                                    /* tp_version_tag */
     0,                                    /* tp_finalize */
-    0                                     /* tp_vectorcall */
+    0,                                    /* tp_vectorcall */
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
-    ,
-    0                                     /* tp_watched */
+    0,                                    /* tp_watched */
 #endif
 };
 
@@ -729,7 +745,7 @@ static PyTypeObject Quantity_Type = {
     sizeof(QuantityObject),         /* tp_basicsize */
     0,                              /* tp_itemsize */
     0,                              /* tp_dealloc */
-    0,                              /* tp_print */
+    0,                              /* tp_print or tp_vectorcall_offset */
     0,                              /* tp_getattr */
     0,                              /* tp_setattr */
     0,                              /* tp_compare */
@@ -772,10 +788,9 @@ static PyTypeObject Quantity_Type = {
     0,                              /* tp_del */
     0,                              /* tp_version_tag */
     0,                              /* tp_finalize */
-    0                               /* tp_vectorcall */
+    0,                              /* tp_vectorcall */
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
-    ,
-    0                               /* tp_watched */
+    0,                              /* tp_watched */
 #endif
 };
 

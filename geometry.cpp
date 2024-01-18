@@ -354,9 +354,12 @@ PyDoc_STRVAR(ply_doc,
              " set of vertices, faces, and edges.");
 
 
-// Handle missing properties
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef ply_methods[] = {
     {"get_elements", (PyCFunction) ply_get_elements,
      METH_VARARGS | METH_KEYWORDS,
@@ -416,6 +419,11 @@ static PyMethodDef ply_methods[] = {
      "Set the instance state."},
     {NULL, NULL, 0, NULL} /* sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static PyGetSetDef ply_properties[] = {
@@ -451,7 +459,7 @@ static PyTypeObject Ply_Type = {
     sizeof(PlyObject),              /* tp_basicsize */
     0,                              /* tp_itemsize */
     (destructor) ply_dealloc,       /* tp_dealloc */
-    0,                              /* tp_print */
+    0,                              /* tp_print or tp_vectorcall_offset */
     0,                              /* tp_getattr */
     0,                              /* tp_setattr */
     0,                              /* tp_compare */
@@ -494,10 +502,9 @@ static PyTypeObject Ply_Type = {
     0,                              /* tp_del */
     0,                              /* tp_version_tag */
     0,                              /* tp_finalize */
-    0                               /* tp_vectorcall */
+    0,                              /* tp_vectorcall */
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
-    ,
-    0                               /* tp_watched */
+    0,                              /* tp_watched */
 #endif
 };
 
@@ -520,9 +527,12 @@ PyDoc_STRVAR(objwavefront_doc,
              " set of vertices, faces, and edges.");
 
 
-// Handle missing properties
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef objwavefront_methods[] = {
     {"get", (PyCFunction) objwavefront_get_elements,
      METH_VARARGS | METH_KEYWORDS,
@@ -588,6 +598,11 @@ static PyMethodDef objwavefront_methods[] = {
      "Set the instance state."},
     {NULL, NULL, 0, NULL} /* sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static PyGetSetDef objwavefront_properties[] = {
@@ -622,7 +637,7 @@ static PyTypeObject ObjWavefront_Type = {
     sizeof(ObjWavefrontObject),         /* tp_basicsize */
     0,                                  /* tp_itemsize */
     (destructor) objwavefront_dealloc,  /* tp_dealloc */
-    0,                                  /* tp_print */
+    0,                                  /* tp_print or tp_vectorcall_offset */
     0,                                  /* tp_getattr */
     0,                                  /* tp_setattr */
     0,                                  /* tp_compare */
@@ -665,10 +680,9 @@ static PyTypeObject ObjWavefront_Type = {
     0,                                  /* tp_del */
     0,                                  /* tp_version_tag */
     0,                                  /* tp_finalize */
-    0                                   /* tp_vectorcall */
+    0,                                  /* tp_vectorcall */
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
-    ,
-    0                                   /* tp_watched */
+    0,                                  /* tp_watched */
 #endif
 };
 
