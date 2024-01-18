@@ -35,7 +35,7 @@
 
 using namespace rapidjson;
 
-static int _dont_thread_rapidjson_calls = 1;
+static int _dont_thread_rapidjson_calls = 0;
 
 
 /* On some MacOS combo, using Py_IS_XXX() macros does not work (see
