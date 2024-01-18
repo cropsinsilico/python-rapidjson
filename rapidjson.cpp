@@ -35,6 +35,8 @@
 
 using namespace rapidjson;
 
+static int _dont_thread_rapidjson_calls = 1;
+
 
 /* On some MacOS combo, using Py_IS_XXX() macros does not work (see
    https://github.com/python-rapidjson/python-rapidjson/issues/78).
@@ -5046,13 +5048,14 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     }
     bool accept;
 
-    // if (validator.RequiresPython() || d.RequiresPython()) {
-    // 	accept = d.Accept(validator);
-    // } else {
-    Py_BEGIN_ALLOW_THREADS
-    accept = d.Accept(validator);
-    Py_END_ALLOW_THREADS
-    // }
+    if (_dont_thread_rapidjson_calls &&
+	(validator.RequiresPython() || d.RequiresPython())) {
+	accept = d.Accept(validator);
+    } else {
+	Py_BEGIN_ALLOW_THREADS
+	accept = d.Accept(validator);
+	Py_END_ALLOW_THREADS
+    }
 
     if (!cleanup_python_globals(d, isPythonDoc))
 	return NULL;
@@ -5305,13 +5308,14 @@ static PyObject* validator_check_schema(PyObject*, PyObject* args, PyObject* kwa
     SchemaValidator validator(metaschema);
     bool accept;
 
-    // if (validator.RequiresPython() || d.RequiresPython()) {
-    // 	accept = d.Accept(validator);
-    // } else {
-    Py_BEGIN_ALLOW_THREADS
-    accept = d.Accept(validator);
-    Py_END_ALLOW_THREADS
-    // }
+    if (_dont_thread_rapidjson_calls &&
+	(validator.RequiresPython() || d.RequiresPython())) {
+	accept = d.Accept(validator);
+    } else {
+	Py_BEGIN_ALLOW_THREADS
+	accept = d.Accept(validator);
+	Py_END_ALLOW_THREADS
+    }
 
     if (!accept) {
 	set_validation_error(validator);
@@ -5367,13 +5371,14 @@ static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwa
     SchemaValidator v2(*((ValidatorObject*)validator2)->schema);
     bool accept;
     
-    // if (v1.RequiresPython() || v2.RequiresPython()) {
-    // 	accept = v1.Compare(v2);
-    // } else {
-    Py_BEGIN_ALLOW_THREADS
-    accept = v1.Compare(v2);
-    Py_END_ALLOW_THREADS
-    // }
+    if (_dont_thread_rapidjson_calls &&
+	(v1.RequiresPython() || v2.RequiresPython())) {
+	accept = v1.Compare(v2);
+    } else {
+	Py_BEGIN_ALLOW_THREADS
+	accept = v1.Compare(v2);
+	Py_END_ALLOW_THREADS
+    }
 
     Py_DECREF(validator2);
     if (!accept) {
@@ -6074,13 +6079,14 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
     }
     bool accept;
 
-    // if (normalizer.RequiresPython() || d.RequiresPython()) {
-    // 	accept = d.Accept(normalizer);
-    // } else {
-    Py_BEGIN_ALLOW_THREADS
-    accept = d.Accept(normalizer);
-    Py_END_ALLOW_THREADS
-    // }
+    if (_dont_thread_rapidjson_calls &&
+	(normalizer.RequiresPython() || d.RequiresPython())) {
+	accept = d.Accept(normalizer);
+    } else {
+	Py_BEGIN_ALLOW_THREADS
+	accept = d.Accept(normalizer);
+	Py_END_ALLOW_THREADS
+    }
 
     if (!accept) {
 	if (isEmptyString) {
@@ -6264,13 +6270,14 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
     SchemaValidator validator(*(v->schema));
     bool accept;
 
-    // if (validator.RequiresPython() || d.RequiresPython()) {
-    // 	accept = d.Accept(validator);
-    // } else {
-    Py_BEGIN_ALLOW_THREADS
-    accept = d.Accept(validator);
-    Py_END_ALLOW_THREADS
-    // }
+    if (_dont_thread_rapidjson_calls &&
+	(validator.RequiresPython() || d.RequiresPython())) {
+	accept = d.Accept(validator);
+    } else {
+	Py_BEGIN_ALLOW_THREADS
+	accept = d.Accept(validator);
+	Py_END_ALLOW_THREADS
+    }
 
     if (!accept) {
 	if (isEmptyString) {
@@ -6311,13 +6318,14 @@ static PyObject* normalizer_compare(PyObject* self, PyObject* args, PyObject* kw
     SchemaValidator v1(*((NormalizerObject*)self)->schema);
     SchemaValidator v2(*((NormalizerObject*)validator2)->schema);
     bool accept;
-    // if (v1.RequiresPython() || v2.RequiresPython()) {
-    // 	accept = v1.Compare(v2);
-    // } else {
-    Py_BEGIN_ALLOW_THREADS
-    accept = v1.Compare(v2);
-    Py_END_ALLOW_THREADS
-    // }
+    if (_dont_thread_rapidjson_calls &&
+	(v1.RequiresPython() || v2.RequiresPython())) {
+	accept = v1.Compare(v2);
+    } else {
+	Py_BEGIN_ALLOW_THREADS
+	accept = v1.Compare(v2);
+	Py_END_ALLOW_THREADS
+    }
     Py_DECREF(validator2);
     if (!accept) {
 	if (dontRaise) {
