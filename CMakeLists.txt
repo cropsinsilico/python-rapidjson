@@ -57,6 +57,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   string(REPLACE "-Wstrict-prototypes" ""
          CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 
+  # Ignore warnings about missing members in PyTypeObject objects
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
+
   # Add -pedantic, so we get a warning when using non-standard features, and
   # -Wno-long-long to pacify old gcc (or Apple's hybrids) that treat
   # "long long" as an error under C++ (see issue #69). C++11 is required
