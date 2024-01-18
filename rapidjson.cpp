@@ -22,6 +22,7 @@
 #include <vector>
 
 #define RAPIDJSON_FORCE_IMPORT_ARRAY
+// #define YGG_ENSURE_PY_GIL
 #include "rapidjson/pyrj.h"
 #include "rapidjson/reader.h"
 #include "rapidjson/schema.h"
@@ -35,7 +36,12 @@
 
 using namespace rapidjson;
 
+
+#ifdef YGG_ENSURE_PY_GIL
 static int _dont_thread_rapidjson_calls = 0;
+#else // YGG_ENSURE_PY_GIL
+static int _dont_thread_rapidjson_calls = 1;
+#endif // YGG_ENSURE_PY_GIL
 
 
 /* On some MacOS combo, using Py_IS_XXX() macros does not work (see
