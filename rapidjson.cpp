@@ -1125,6 +1125,7 @@ struct PyHandler {
             const HandlerContext& current = stack.back();
 
             if (current.isObject) {
+		CHECK_REFS(before_handle_object);
                 PyObject* key = PyUnicode_FromStringAndSize(current.key,
                                                             current.keyLength);
                 if (key == NULL) {
@@ -1166,9 +1167,12 @@ struct PyHandler {
                 if (rc == -1) {
                     return false;
                 }
+		CHECK_REFS(after_handle_object);
             } else {
+		CHECK_REFS(before_handle_array);
                 PyList_Append(current.object, value);
                 Py_DECREF(value);
+		CHECK_REFS(after_handle_array);
             }
         } else {
             root = value;
