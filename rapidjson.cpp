@@ -34,7 +34,9 @@
 
 #ifndef CHECK_REFS_LOCAL
 static inline
-void _check_refs() {
+void _check_refs(const std::string& name) {
+    if (PyErr_Occurred())
+	return;
     PyObject* sys = PyImport_ImportModule("sys");
     if (sys != NULL && PyObject_HasAttrString(sys, "gettotalrefcount")) {
 	PyObject* refc = PyObject_GetAttrString(sys, "gettotalrefcount");
@@ -42,14 +44,15 @@ void _check_refs() {
 	    PyObject* res = PyObject_CallFunction(refc, NULL);
 	    Py_DECREF(refc);
 	    if (res != NULL && PyLong_Check(res)) {
-		std::cerr << "REFS = " << PyLong_AsLong(res) << std::endl;
+		std::cerr << name << " REFS = " <<
+		    PyLong_AsLong(res) << std::endl;
 	    }
 	    Py_XDECREF(res);
 	}
     }
     Py_XDECREF(sys);
 }
-#define CHECK_REFS_LOCAL(x) _check_refs()
+#define CHECK_REFS_LOCAL(x) _check_refs(#x)
 #endif
 
 
@@ -2024,8 +2027,6 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
     unsigned parseMode = PM_NONE;
     int allowNan = -1;
 
-    CHECK_REFS_LOCAL(objectHook);
-
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOp:rapidjson.loads",
                                      (char**) kwlist,
                                      &jsonObject,
@@ -2037,8 +2038,6 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
                                      &allowNan))
         return NULL;
 
-    CHECK_REFS_LOCAL(objectHook);
-
     if (objectHook && !PyCallable_Check(objectHook)) {
         if (objectHook == Py_None) {
             objectHook = NULL;
@@ -2047,8 +2046,6 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
             return NULL;
         }
     }
-
-    CHECK_REFS_LOCAL(objectHook);
 
     if (!accept_number_mode_arg(numberModeObj, allowNan, numberMode))
         return NULL;
@@ -2059,8 +2056,6 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    CHECK_REFS_LOCAL(objectHook);
-
     if (!accept_datetime_mode_arg(datetimeModeObj, datetimeMode))
         return NULL;
     if (datetimeMode && datetime_mode_format(datetimeMode) != DM_ISO8601) {
@@ -2070,12 +2065,8 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    CHECK_REFS_LOCAL(objectHook);
-
     if (!accept_uuid_mode_arg(uuidModeObj, uuidMode))
         return NULL;
-
-    CHECK_REFS_LOCAL(objectHook);
 
     if (!accept_parse_mode_arg(parseModeObj, parseMode))
         return NULL;
@@ -2083,8 +2074,6 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
     Py_ssize_t jsonStrLen;
     const char* jsonStr;
     PyObject* asUnicode = NULL;
-
-    CHECK_REFS_LOCAL(objectHook);
 
     if (PyUnicode_Check(jsonObject)) {
         jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
@@ -2106,17 +2095,15 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    CHECK_REFS_LOCAL(objectHook);
+    CHECK_REFS_LOCAL(before);
 
     PyObject* result = do_decode(NULL, jsonStr, jsonStrLen, NULL, 0, objectHook,
                                  numberMode, datetimeMode, uuidMode, parseMode);
 
-    CHECK_REFS_LOCAL(objectHook);
+    CHECK_REFS_LOCAL(after);
 
     if (asUnicode != NULL)
         Py_DECREF(asUnicode);
-
-    CHECK_REFS_LOCAL(objectHook);
 
     return result;
 }
