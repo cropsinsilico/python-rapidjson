@@ -3332,18 +3332,16 @@ PythonAccept(
 	PyObject* trimeshClass = import_trimesh_class();
 	if (trimeshClass != NULL && PyObject_IsInstance(object, trimeshClass)) {
 	    RAPIDJSON_DEFAULT_ALLOCATOR allocator;
-	    Py_INCREF(object);
 	    PyObject* ply_args = PyTuple_Pack(1, object);
 	    if (ply_args == NULL) {
-		Py_DECREF(object);
 		return false;
 	    }
 	    PlyObject* object_ply = (PlyObject*)ply_from_trimesh(NULL, ply_args, NULL);
-	    Py_DECREF(ply_args);
+	    Py_CLEAR(ply_args);
 	    if (object_ply == NULL)
 		return false;
 	    if (object_ply->ply == NULL) {
-		Py_DECREF(object_ply);
+		Py_CLEAR(object_ply);
 		return false;
 	    }
 	    Value x;
@@ -3354,6 +3352,7 @@ PythonAccept(
 		PyErr_Format(PyExc_TypeError, "Error serializing Trimesh instance as Ply instance");
 	    return ret;
 	}
+	Py_CLEAR(trimeshClass);
 	// PythonAccept
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value();
@@ -5745,7 +5744,6 @@ compare_schemas(PyObject* self, PyObject* args, PyObject* kwargs)
     if (validator1 == NULL)
 	return NULL;
 
-    // Py_INCREF(validatorObject2);
     PyObject* validator2_args = PyTuple_Pack(1, validatorObject2);
     if (validator2_args == NULL) {
 	Py_DECREF(validator1);
