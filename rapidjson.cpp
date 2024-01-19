@@ -32,7 +32,7 @@
 #include "units.cpp"
 #include "geometry.cpp"
 
-#ifndef CHECK_REFS
+#ifndef CHECK_REFS_LOCAL
 static inline
 void _check_refs() {
     PyObject* sys = PyImport_ImportModule("sys");
@@ -49,7 +49,7 @@ void _check_refs() {
     }
     Py_XDECREF(sys);
 }
-#define CHECK_REFS(x) _check_refs()
+#define CHECK_REFS_LOCAL(x) _check_refs()
 #endif
 
 
@@ -2024,7 +2024,7 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
     unsigned parseMode = PM_NONE;
     int allowNan = -1;
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOp:rapidjson.loads",
                                      (char**) kwlist,
@@ -2037,7 +2037,7 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
                                      &allowNan))
         return NULL;
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     if (objectHook && !PyCallable_Check(objectHook)) {
         if (objectHook == Py_None) {
@@ -2048,7 +2048,7 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         }
     }
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     if (!accept_number_mode_arg(numberModeObj, allowNan, numberMode))
         return NULL;
@@ -2059,7 +2059,7 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     if (!accept_datetime_mode_arg(datetimeModeObj, datetimeMode))
         return NULL;
@@ -2070,12 +2070,12 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     if (!accept_uuid_mode_arg(uuidModeObj, uuidMode))
         return NULL;
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     if (!accept_parse_mode_arg(parseModeObj, parseMode))
         return NULL;
@@ -2084,7 +2084,7 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
     const char* jsonStr;
     PyObject* asUnicode = NULL;
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     if (PyUnicode_Check(jsonObject)) {
         jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
@@ -2106,17 +2106,17 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     PyObject* result = do_decode(NULL, jsonStr, jsonStrLen, NULL, 0, objectHook,
                                  numberMode, datetimeMode, uuidMode, parseMode);
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     if (asUnicode != NULL)
         Py_DECREF(asUnicode);
 
-    CHECK_REFS(objectHook);
+    CHECK_REFS_LOCAL(objectHook);
 
     return result;
 }
