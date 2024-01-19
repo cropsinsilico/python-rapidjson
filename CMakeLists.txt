@@ -3,21 +3,6 @@ set(YGGDRASIL_REQUIRE_SKBUILD ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ygg_options.cmake)
 
-if (NOT RAPIDJSON_INCLUDE_DIRS)
-  cmake_path(APPEND CMAKE_CURRENT_SOURCE_DIR rapidjson include
-             OUTPUT_VARIABLE RAPIDJSON_INCLUDE_DIRS)
-endif()
-message(STATUS "RAPIDJSON_INCLUDE_DIRS = ${RAPIDJSON_INCLUDE_DIRS}")
-if (NOT EXISTS ${RAPIDJSON_INCLUDE_DIRS})
-  message(FATAL_ERROR "RapidJSON sources not found: if you cloned "
-                      " the git repository, you should initialize"
-	  	      " the rapidjson submodule as explained in the"
-		      " README.rst; in all other cases you may"
-		      " want to report the issue.")
-endif()
-
-set(PYTHON_PREFIX Python)
-
 # if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 #   set (${PYTHON_PREFIX}_FIND_ABI "ON" "ANY" "ANY")
 # endif()
@@ -31,10 +16,9 @@ if (PYTHON_PREFIX STREQUAL "Python")
 else()
   Python3_add_library(rapidjson MODULE rapidjson.cpp)
 endif()
-target_include_directories(
-  rapidjson PUBLIC ${RAPIDJSON_INCLUDE_DIRS})
-target_link_libraries(
-  rapidjson PUBLIC Python::NumPy)
+
+target_include_directories(rapidjson PUBLIC ${RAPIDJSON_INCLUDE_DIRS})
+target_link_libraries(rapidjson PUBLIC Python::NumPy)
 
 target_compile_options(
   rapidjson PUBLIC

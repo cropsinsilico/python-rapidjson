@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements-test.txt
-          pip install --config-settings=cmake.build-type=Debug -v .
+          pip install --config-settings=cmake.build-type=Debug -v . --config-settings=cmake.define.RAPIDJSON_CHECK_PYREFS:BOOL=ON
 
       - run: |
           pytest -sv tests/test_refs_count.py::test_leaks

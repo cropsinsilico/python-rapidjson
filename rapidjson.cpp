@@ -32,29 +32,6 @@
 #include "units.cpp"
 #include "geometry.cpp"
 
-#ifndef CHECK_REFS_LOCAL
-static inline
-void _check_refs(const std::string& name) {
-    if (PyErr_Occurred())
-	return;
-    PyObject* sys = PyImport_ImportModule("sys");
-    if (sys != NULL && PyObject_HasAttrString(sys, "gettotalrefcount")) {
-	PyObject* refc = PyObject_GetAttrString(sys, "gettotalrefcount");
-	if (refc != NULL) {
-	    PyObject* res = PyObject_CallFunction(refc, NULL);
-	    Py_DECREF(refc);
-	    if (res != NULL && PyLong_Check(res)) {
-		std::cerr << name << " REFS = " <<
-		    PyLong_AsLong(res) << std::endl;
-	    }
-	    Py_XDECREF(res);
-	}
-    }
-    Py_XDECREF(sys);
-}
-#define CHECK_REFS_LOCAL(x) _check_refs(#x)
-#endif
-
 
 using namespace rapidjson;
 
@@ -2095,12 +2072,12 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    CHECK_REFS_LOCAL(before_loads);
+    CHECK_REFS(before_loads);
 
     PyObject* result = do_decode(NULL, jsonStr, jsonStrLen, NULL, 0, objectHook,
                                  numberMode, datetimeMode, uuidMode, parseMode);
 
-    CHECK_REFS_LOCAL(after_loads);
+    CHECK_REFS(after_loads);
 
     if (asUnicode != NULL)
         Py_DECREF(asUnicode);
@@ -3645,12 +3622,14 @@ dumps_internal(
             Py_DECREF(dr);
         }
     } else if (CHECK_UNICODE_NO_NUMPY(object)) {
+	CHECK_REFS(unicode_before);
         Py_ssize_t l;
         const char* s = PyUnicode_AsUTF8AndSize(object, &l);
         if (s == NULL)
             return false;
         ASSERT_VALID_SIZE(l);
         writer->String(s, (SizeType) l);
+	CHECK_REFS(unicode_after);
     } else if (bytesMode == BM_UTF8
                && (PyBytes_Check(object) || PyByteArray_Check(object))) {
         PyObject* unicodeObj = PyUnicode_FromEncodedObject(object, "utf-8", NULL);
@@ -4325,13 +4304,13 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
     if (sortKeys)
         mappingMode |= MM_SORT_KEYS;
 
-    CHECK_REFS_LOCAL(before_dumps);
+    CHECK_REFS(before_dumps);
     
     PyObject* result = do_encode(value, defaultFn, ensureAscii ? true : false, writeMode, indentChar,
                      indentCount, numberMode, datetimeMode, uuidMode, bytesMode,
                      iterableMode, mappingMode, yggdrasilMode);
 
-    CHECK_REFS_LOCAL(after_dumps);
+    CHECK_REFS(after_dumps);
     
     return result;
 }
