@@ -2095,12 +2095,12 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    CHECK_REFS_LOCAL(before);
+    CHECK_REFS_LOCAL(before_loads);
 
     PyObject* result = do_decode(NULL, jsonStr, jsonStrLen, NULL, 0, objectHook,
                                  numberMode, datetimeMode, uuidMode, parseMode);
 
-    CHECK_REFS_LOCAL(after);
+    CHECK_REFS_LOCAL(after_loads);
 
     if (asUnicode != NULL)
         Py_DECREF(asUnicode);
@@ -4325,9 +4325,15 @@ dumps(PyObject* self, PyObject* args, PyObject* kwargs)
     if (sortKeys)
         mappingMode |= MM_SORT_KEYS;
 
-    return do_encode(value, defaultFn, ensureAscii ? true : false, writeMode, indentChar,
+    CHECK_REFS_LOCAL(before_dumps);
+    
+    PyObject* result = do_encode(value, defaultFn, ensureAscii ? true : false, writeMode, indentChar,
                      indentCount, numberMode, datetimeMode, uuidMode, bytesMode,
                      iterableMode, mappingMode, yggdrasilMode);
+
+    CHECK_REFS_LOCAL(after_dumps);
+    
+    return result;
 }
 
 

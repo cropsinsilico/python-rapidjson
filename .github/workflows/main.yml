@@ -76,7 +76,7 @@ jobs:
           pip install --config-settings=cmake.build-type=Debug -v .
 
       - run: |
-          pytest -sv tests
+          pytest -sv tests/test_refs_count.py::test_leaks
 
   build_wheels:
     name: Build wheels on ${{matrix.arch}} for ${{ matrix.os }}
