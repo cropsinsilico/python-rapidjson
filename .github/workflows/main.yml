@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements-test.txt
-          pip install -v .
+          pip install --config-settings=cmake.build-type=Debug -v .
 
       - run: |
           pytest -sv tests
