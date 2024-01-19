@@ -1175,7 +1175,9 @@ struct PyHandler {
 		CHECK_REFS(after_handle_array);
             }
         } else {
+	    CHECK_REFS(before_handle_gen);
             root = value;
+	    CHECK_REFS(after_handle_gen);
         }
         return true;
     }
