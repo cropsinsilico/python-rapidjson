@@ -44,9 +44,6 @@ endif()
 if (UNIX)
   include(GNUInstallDirs)
 endif()
-if (SKBUILD AND WIN32)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
 
 # compile in release with debug info mode by default
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
