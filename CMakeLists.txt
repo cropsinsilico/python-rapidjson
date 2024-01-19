@@ -18,9 +18,9 @@ endif()
 
 set(PYTHON_PREFIX Python)
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set (${PYTHON_PREFIX}_FIND_ABI "ON" "ANY" "ANY")
-endif()
+# if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+#   set (${PYTHON_PREFIX}_FIND_ABI "ON" "ANY" "ANY")
+# endif()
 find_package(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
 if (${PYTHON_PREFIX}_VERSION VERSION_LESS "3.8.0")
   message(FATAL_ERROR "Only Python 3.8+ is supported.")
