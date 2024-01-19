@@ -2004,6 +2004,8 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
     unsigned parseMode = PM_NONE;
     int allowNan = -1;
 
+    CHECK_REFS(objectHook);
+
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$OOOOOp:rapidjson.loads",
                                      (char**) kwlist,
                                      &jsonObject,
@@ -2015,6 +2017,8 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
                                      &allowNan))
         return NULL;
 
+    CHECK_REFS(objectHook);
+
     if (objectHook && !PyCallable_Check(objectHook)) {
         if (objectHook == Py_None) {
             objectHook = NULL;
@@ -2023,6 +2027,8 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
             return NULL;
         }
     }
+
+    CHECK_REFS(objectHook);
 
     if (!accept_number_mode_arg(numberModeObj, allowNan, numberMode))
         return NULL;
@@ -2033,6 +2039,8 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
+    CHECK_REFS(objectHook);
+
     if (!accept_datetime_mode_arg(datetimeModeObj, datetimeMode))
         return NULL;
     if (datetimeMode && datetime_mode_format(datetimeMode) != DM_ISO8601) {
@@ -2042,8 +2050,12 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
+    CHECK_REFS(objectHook);
+
     if (!accept_uuid_mode_arg(uuidModeObj, uuidMode))
         return NULL;
+
+    CHECK_REFS(objectHook);
 
     if (!accept_parse_mode_arg(parseModeObj, parseMode))
         return NULL;
@@ -2051,6 +2063,8 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
     Py_ssize_t jsonStrLen;
     const char* jsonStr;
     PyObject* asUnicode = NULL;
+
+    CHECK_REFS(objectHook);
 
     if (PyUnicode_Check(jsonObject)) {
         jsonStr = PyUnicode_AsUTF8AndSize(jsonObject, &jsonStrLen);
@@ -2072,11 +2086,17 @@ loads(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
+    CHECK_REFS(objectHook);
+
     PyObject* result = do_decode(NULL, jsonStr, jsonStrLen, NULL, 0, objectHook,
                                  numberMode, datetimeMode, uuidMode, parseMode);
 
+    CHECK_REFS(objectHook);
+
     if (asUnicode != NULL)
         Py_DECREF(asUnicode);
+
+    CHECK_REFS(objectHook);
 
     return result;
 }
