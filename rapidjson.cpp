@@ -643,9 +643,15 @@ accept_write_mode_arg(PyObject* arg, unsigned &write_mode)
             }
             if (mode == WM_COMPACT) {
                 write_mode = WM_COMPACT;
-            } else if (mode & WM_SINGLE_LINE_ARRAY) {
-                write_mode = (unsigned) (write_mode | WM_SINGLE_LINE_ARRAY);
-            }
+	    } else {
+		write_mode = WM_PRETTY;
+		// if (mode & WM_PRETTY) {
+		//     write_mode = WM_PRETTY;
+		// }
+		if (mode & WM_SINGLE_LINE_ARRAY) {
+		    write_mode = (unsigned) (write_mode | WM_SINGLE_LINE_ARRAY);
+		}
+	    }
         } else {
             PyErr_SetString(PyExc_TypeError,
                             "write_mode must be a non-negative int");

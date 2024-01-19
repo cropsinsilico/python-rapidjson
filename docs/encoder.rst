@@ -152,7 +152,7 @@
          >>> Encoder()(point)
          Traceback (most recent call last):
            File "<stdin>", line 1, in <module>
-         TypeError: <__main__.Point object at …> is not JSON serializable
+         TypeError: <....Point object at ...> is not JSON serializable even with yggdrasil extension
          >>> class PointEncoder(Encoder):
          ...   def default(self, obj):
          ...     if isinstance(obj, Point):

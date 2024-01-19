@@ -111,7 +111,7 @@ Values can also be :class:`bytes` or :class:`bytearray` instances, which are enc
     >>> dumps({'a date': some_day, 'a timestamp': some_timestamp})
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
-    TypeError: datetime.datetime(…) is not JSON serializable
+    TypeError: datetime.date(2016, 8, 28) is not JSON serializable
     >>> dumps({'a date': some_day, 'a timestamp': some_timestamp},
     ...       datetime_mode=DM_ISO8601,
     ...       sort_keys=True) # for doctests
@@ -126,7 +126,7 @@ Values can also be :class:`bytes` or :class:`bytearray` instances, which are enc
     >>> dumps(some_uuid)
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
-    TypeError: UUID(…) is not JSON serializable
+    TypeError: UUID('...') is not JSON serializable
     >>> dumps(some_uuid, uuid_mode=UM_CANONICAL)
     '"886313e1-3b8a-5372-9b90-0c9aee199e5d"'
     >>> as_json = _
@@ -138,7 +138,7 @@ Values can also be :class:`bytes` or :class:`bytearray` instances, which are enc
     >>> dumps(pi)
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
-    TypeError: Decimal(…) is not JSON serializable
+    TypeError: Decimal(...) is not JSON serializable
     >>> dumps(pi, number_mode=NM_DECIMAL)
     '3.1415926535897932384626433832795028841971'
     >>> as_json = _
