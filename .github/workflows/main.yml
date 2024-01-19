@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements-test.txt
-          pip install .
+          pip install . -v
 
       - name: Tests
         run: |
@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements-test.txt
-          pip install .
+          pip install . -v
 
       - run: |
           pytest tests
