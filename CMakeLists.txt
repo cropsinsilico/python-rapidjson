@@ -40,7 +40,6 @@ if (RAPIDJSON_EXACT_VERSION)
     rapidjson PUBLIC
     "-DRAPIDJSON_EXACT_VERSION=${RAPIDJSON_EXACT_VERSION}")
 endif()
-set(YGG_CHECK_REF_COUNTS ON) # TODO: Disable this
 if (YGG_CHECK_REF_COUNTS)
   target_compile_options(rapidjson PUBLIC -DYGG_CHECK_REF_COUNTS)
 endif()

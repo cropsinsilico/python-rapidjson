@@ -32,6 +32,26 @@
 #include "units.cpp"
 #include "geometry.cpp"
 
+#ifndef CHECK_REFS
+static inline
+void _check_refs() {
+    PyObject* sys = PyImport_ImportModule("sys");
+    if (sys != NULL && PyObject_HasAttrString(sys, "gettotalrefcount")) {
+	PyObject* refc = PyObject_GetAttrString(sys, "gettotalrefcount");
+	if (refc != NULL) {
+	    PyObject* res = PyObject_CallFunction(refc, NULL);
+	    Py_DECREF(refc);
+	    if (res != NULL && PyLong_Check(res)) {
+		std::cerr << "REFS = " << PyLong_AsLong(res) << std::endl;
+	    }
+	    Py_XDECREF(res);
+	}
+    }
+    Py_XDECREF(sys);
+}
+#define CHECK_REFS(x) _check_refs()
+#endif
+
 
 using namespace rapidjson;
 
