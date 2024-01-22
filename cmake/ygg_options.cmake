@@ -46,7 +46,6 @@ if (UNIX)
 endif()
 
 # compile in release with debug info mode by default
-message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
 endif()
@@ -80,7 +79,7 @@ if (NOT EXISTS ${RAPIDJSON_INCLUDE_DIRS})
 		      " want to report the issue.")
 endif()
 
-set(PYTHON_PREFIX Python)
+set(PYTHON_PREFIX Python3)
 # TODO: Use this in specialized cmake method for locating python
 
 if (RAPIDJSON_CHECK_PYREFS)
