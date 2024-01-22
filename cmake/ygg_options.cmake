@@ -83,7 +83,7 @@ set(PYTHON_PREFIX Python3)
 # TODO: Use this in specialized cmake method for locating python
 
 if (RAPIDJSON_CHECK_PYREFS)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRAPIDJSON_CHECK_PYREFS")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPy_DEBUG -DRAPIDJSON_CHECK_PYREFS")
 endif()
 
 if(NOT WIN32)

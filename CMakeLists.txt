@@ -27,7 +27,7 @@ target_include_directories(rapidjson PUBLIC ${RAPIDJSON_INCLUDE_DIRS})
 target_link_libraries(rapidjson PUBLIC ${PYTHON_PREFIX}::NumPy)
 
 message(STATUS "${PYTHON_PREFIX}_INCLUDE_DIRS = ${${PYTHON_PREFIX}_INCLUDE_DIRS}")
-target_include_directories(rapidjson PUBLIC "${PYTHON_PREFIX}_INCLUDE_DIRS")
+target_include_directories(rapidjson PUBLIC "${${PYTHON_PREFIX}_INCLUDE_DIRS}")
 
 target_compile_options(
   rapidjson PUBLIC
