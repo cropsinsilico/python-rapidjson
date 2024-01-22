@@ -77,7 +77,7 @@ jobs:
           # pip install --config-settings=cmake.build-type=Debug -v .
 
       - run: |
-          home/runner/venv-${{ matrix.python-version }}/bin/python${{ matrix.python-version }}-dbg pytest -sv tests/test_refs_count.py::test_leaks
+          /home/runner/venv-${{ matrix.python-version }}/bin/python${{ matrix.python-version }}-dbg pytest -sv tests/test_refs_count.py::test_leaks
 
   build_wheels:
     name: Build wheels on ${{matrix.arch}} for ${{ matrix.os }}
