@@ -354,7 +354,12 @@ PyDoc_STRVAR(ply_doc,
              " set of vertices, faces, and edges.");
 
 
-// Handle missing properties
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef ply_methods[] = {
     {"get_elements", (PyCFunction) ply_get_elements,
      METH_VARARGS | METH_KEYWORDS,
@@ -412,8 +417,13 @@ static PyMethodDef ply_methods[] = {
     {"__setstate__", (PyCFunction) ply__setstate__,
      METH_O,
      "Set the instance state."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, NULL} /* sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static PyGetSetDef ply_properties[] = {
@@ -427,7 +437,7 @@ static PyGetSetDef ply_properties[] = {
      "The number of vertices in the structure.", NULL},
     {"nface", ply_nface, NULL,
      "The number of faces in the structure.", NULL},
-    {NULL}
+    {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
 
@@ -449,7 +459,7 @@ static PyTypeObject Ply_Type = {
     sizeof(PlyObject),              /* tp_basicsize */
     0,                              /* tp_itemsize */
     (destructor) ply_dealloc,       /* tp_dealloc */
-    0,                              /* tp_print */
+    0,                              /* tp_print or tp_vectorcall_offset */
     0,                              /* tp_getattr */
     0,                              /* tp_setattr */
     0,                              /* tp_compare */
@@ -483,6 +493,19 @@ static PyTypeObject Ply_Type = {
     0,                              /* tp_alloc */
     ply_new,                        /* tp_new */
     PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0,                              /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    0,                              /* tp_watched */
+#endif
 };
 
 
@@ -504,7 +527,12 @@ PyDoc_STRVAR(objwavefront_doc,
              " set of vertices, faces, and edges.");
 
 
-// Handle missing properties
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef objwavefront_methods[] = {
     {"get", (PyCFunction) objwavefront_get_elements,
      METH_VARARGS | METH_KEYWORDS,
@@ -568,8 +596,13 @@ static PyMethodDef objwavefront_methods[] = {
     {"__setstate__", (PyCFunction) objwavefront__setstate__,
      METH_O,
      "Set the instance state."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, NULL} /* sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static PyGetSetDef objwavefront_properties[] = {
@@ -583,7 +616,7 @@ static PyGetSetDef objwavefront_properties[] = {
      "The number of vertices in the structure.", NULL},
     {"nface", objwavefront_nface, NULL,
      "The number of faces in the structure.", NULL},
-    {NULL}
+    {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
 
@@ -604,7 +637,7 @@ static PyTypeObject ObjWavefront_Type = {
     sizeof(ObjWavefrontObject),         /* tp_basicsize */
     0,                                  /* tp_itemsize */
     (destructor) objwavefront_dealloc,  /* tp_dealloc */
-    0,                                  /* tp_print */
+    0,                                  /* tp_print or tp_vectorcall_offset */
     0,                                  /* tp_getattr */
     0,                                  /* tp_setattr */
     0,                                  /* tp_compare */
@@ -638,6 +671,19 @@ static PyTypeObject ObjWavefront_Type = {
     0,                                  /* tp_alloc */
     objwavefront_new,                   /* tp_new */
     PyObject_Del,                       /* tp_free */
+    NULL,                               /* tp_is_gc */
+    NULL,                               /* tp_bases */
+    NULL,                               /* tp_mro */
+    NULL,                               /* tp_cache */
+    NULL,                               /* tp_subclasses */
+    NULL,                               /* tp_weaklist */
+    0,                                  /* tp_del */
+    0,                                  /* tp_version_tag */
+    0,                                  /* tp_finalize */
+    0,                                  /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    0,                                  /* tp_watched */
+#endif
 };
 
 
@@ -1007,7 +1053,7 @@ static PyObject* ply_get_elements(PyObject* self, PyObject* args, PyObject* kwar
     
 }
 
-static PyObject* ply_add_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_add_elements(PyObject* self, PyObject* args, PyObject*) {
     const char* name0 = 0;
     PyObject* x = NULL;
     
@@ -1270,7 +1316,7 @@ static PyObject* ply_add_elements(PyObject* self, PyObject* args, PyObject* kwar
 }
 
 
-static PyObject* ply_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_as_trimesh(PyObject* self, PyObject*, PyObject* kwargs) {
     PyObject* dict_args = PyTuple_New(0);
     if (dict_args == NULL)
 	return NULL;
@@ -1291,7 +1337,7 @@ static PyObject* ply_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs
     Py_DECREF(mesh_dict);
     return out;
 }
-static PyObject* ply_from_trimesh(PyObject* cls, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_from_trimesh(PyObject* cls, PyObject* args, PyObject*) {
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
@@ -1410,7 +1456,7 @@ static PyObject* ply_as_dict(PyObject* self, PyObject* args, PyObject* kwargs) {
 }
 
 
-static PyObject* ply_from_dict(PyObject* type, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_from_dict(PyObject* type, PyObject* args, PyObject*) {
     PyObject* inDict = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inDict))
@@ -1513,7 +1559,7 @@ PyObject* vector2list(const std::vector<T>&) {
     return NULL;
 }
 template<typename T>
-bool list2vector(PyObject* x, std::vector<T>& out) {
+bool list2vector(PyObject*, std::vector<T>&) {
     PyErr_SetString(PyExc_TypeError, "Unsupported type in list2vector");
     return false;
 }
@@ -1594,7 +1640,7 @@ static PyObject* ply_as_mesh(PyObject* self, PyObject*, PyObject*) {
     return out;
 }
 
-static PyObject* ply_count_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_count_elements(PyObject* self, PyObject* args, PyObject*) {
     const char* elementType0 = 0;
     
     if (!PyArg_ParseTuple(args, "s:", &elementType0))
@@ -1616,7 +1662,7 @@ static PyObject* ply_count_elements(PyObject* self, PyObject* args, PyObject* kw
 }
 
 
-static PyObject* ply_append(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_append(PyObject* self, PyObject* args, PyObject*) {
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
@@ -1855,7 +1901,7 @@ static int ply_contains(PyObject* self, PyObject* value) {
 }
 
 
-static PyObject* ply_add_colors(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* ply_add_colors(PyObject* self, PyObject* args, PyObject*) {
     const char* name0 = 0;
     PyObject* x = NULL;
     
@@ -2758,7 +2804,7 @@ static PyObject* objwavefront_get_elements(PyObject* self, PyObject* args, PyObj
     
 }
 
-static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObject*) {
     // TODO: Get double & int values to ignore, maybe flag for skipping inc
     const char* name0 = 0;
     PyObject* x = NULL;
@@ -2828,7 +2874,7 @@ static PyObject* objwavefront_add_elements(PyObject* self, PyObject* args, PyObj
 
 
 
-static PyObject* objwavefront_as_trimesh(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_as_trimesh(PyObject* self, PyObject*, PyObject* kwargs) {
     PyObject* dict_args = PyTuple_New(0);
     if (dict_args == NULL)
 	return NULL;
@@ -2849,7 +2895,7 @@ static PyObject* objwavefront_as_trimesh(PyObject* self, PyObject* args, PyObjec
     Py_DECREF(mesh_dict);
     return out;
 }
-static PyObject* objwavefront_from_trimesh(PyObject* cls, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_trimesh(PyObject* cls, PyObject* args, PyObject*) {
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
@@ -2937,7 +2983,7 @@ static PyObject* objwavefront_as_dict(PyObject* self, PyObject* args, PyObject* 
 }
 
 
-static PyObject* objwavefront_from_dict(PyObject* type, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_dict(PyObject* type, PyObject* args, PyObject*) {
     PyObject* inDict = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inDict))
@@ -3016,7 +3062,7 @@ static PyObject* objwavefront_as_list(PyObject* self, PyObject*, PyObject*) {
     return out;
 }
 
-static PyObject* objwavefront_from_list(PyObject* type, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_from_list(PyObject* type, PyObject* args, PyObject*) {
     PyObject* inList = NULL;
     
     if (!PyArg_ParseTuple(args, "O:", &inList))
@@ -3107,7 +3153,7 @@ static PyObject* objwavefront_as_mesh(PyObject* self, PyObject*, PyObject*) {
     return out;
 }
 
-static PyObject* objwavefront_count_elements(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_count_elements(PyObject* self, PyObject* args, PyObject*) {
     const char* elementType0 = 0;
     
     if (!PyArg_ParseTuple(args, "s:", &elementType0))
@@ -3125,7 +3171,7 @@ static PyObject* objwavefront_count_elements(PyObject* self, PyObject* args, PyO
 }
 
 
-static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject*) {
     PyObject* solf = NULL;
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
@@ -3363,7 +3409,7 @@ static int objwavefront_contains(PyObject* self, PyObject* value) {
 }
 
 
-static PyObject* objwavefront_add_colors(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* objwavefront_add_colors(PyObject* self, PyObject* args, PyObject*) {
     const char* name0 = 0;
     PyObject* x = NULL;
     
@@ -3438,7 +3484,7 @@ static PyObject* objwavefront_add_colors(PyObject* self, PyObject* args, PyObjec
 		return NULL;
 	    }
 	}
-	SizeType xn = PyList_Size(x), xm = 3;
+	SizeType xn = static_cast<SizeType>(PyList_Size(x)), xm = 3;
 	if (!v->obj->add_element_set_colors(name, values.data(), xn, xm)) {
 	    PyErr_SetString(geom_error, "Error adding colors array.");
 	    return NULL;

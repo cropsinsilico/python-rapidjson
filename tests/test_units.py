@@ -9,6 +9,7 @@
 import pytest
 import numpy as np
 
+import rapidjson as rj
 from rapidjson import units
 
 
@@ -349,6 +350,16 @@ class TestQuantity:
         loaded = loads(dumped)
         assert_equal(loaded, x)
 
+    def test_normalize(self, x):
+        normalizer = rj.Normalizer({"type": "scalar",
+                                    "subtype": "float"})
+        x_str = f"\"{str(x)}\""
+        print(x)
+        print(x_str)
+        x_norm = normalizer.normalize(x_str)
+        print(x_norm)
+        assert normalizer.normalize(x_str) == x
+
 
 # ///////////////////
 # // QuantityArray //
@@ -544,6 +555,10 @@ class TestQuantityArray(TestQuantity):
         res = getattr(np, method)([x1, x2])
         assert np.array_equal(res, exp)
         assert res.units == exp.units
+
+    @pytest.mark.skip("Only for scalar")
+    def test_normalize(self):
+        pass
 
 
 class TestUnyt:

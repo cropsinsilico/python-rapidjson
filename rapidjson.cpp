@@ -22,6 +22,7 @@
 #include <vector>
 
 #define RAPIDJSON_FORCE_IMPORT_ARRAY
+// #define YGG_ENSURE_PY_GIL
 #include "rapidjson/pyrj.h"
 #include "rapidjson/reader.h"
 #include "rapidjson/schema.h"
@@ -34,6 +35,13 @@
 
 
 using namespace rapidjson;
+
+
+#ifdef YGG_ENSURE_PY_GIL
+static int _dont_thread_rapidjson_calls = 0;
+#else // YGG_ENSURE_PY_GIL
+static int _dont_thread_rapidjson_calls = 1;
+#endif // YGG_ENSURE_PY_GIL
 
 
 /* On some MacOS combo, using Py_IS_XXX() macros does not work (see
@@ -289,7 +297,7 @@ public:
     PyReadStreamWrapper(PyObject* stream, size_t size)
         : stream(stream) {
         Py_INCREF(stream);
-        chunkSize = PyLong_FromUnsignedLong(size);
+        chunkSize = PyLong_FromUnsignedLong(static_cast<unsigned long>(size));
         buffer = NULL;
         chunk = NULL;
         chunkLen = 0;
@@ -326,7 +334,7 @@ public:
         assert(false);
     }
 
-    void Put(Ch c) {
+    void Put(Ch) {
         assert(false);
     }
 
@@ -335,7 +343,7 @@ public:
         return 0;
     }
 
-    size_t PutEnd(Ch* begin) {
+    size_t PutEnd(Ch*) {
         assert(false);
         return 0;
     }
@@ -469,7 +477,7 @@ public:
         return 0;
     }
 
-    size_t PutEnd(Ch* begin) {
+    size_t PutEnd(Ch*) {
         assert(false);
         return 0;
     }
@@ -532,7 +540,7 @@ static PyMemberDef RawJSON_members[] = {
     {"value",
      T_OBJECT_EX, offsetof(RawJSON, value), READONLY,
      "string representing a serialized JSON object"},
-    {NULL}  /* Sentinel */
+    {NULL, 0, 0, 0, NULL}  /* Sentinel */
 };
 
 
@@ -551,7 +559,7 @@ static PyTypeObject RawJSON_Type = {
     sizeof(RawJSON),                /* tp_basicsize */
     0,                              /* tp_itemsize */
     (destructor) RawJSON_dealloc,   /* tp_dealloc */
-    0,                              /* tp_print */
+    0,                              /* tp_print or tp_vectorcall_offset */
     0,                              /* tp_getattr */
     0,                              /* tp_setattr */
     0,                              /* tp_compare */
@@ -584,6 +592,20 @@ static PyTypeObject RawJSON_Type = {
     0,                              /* tp_init */
     0,                              /* tp_alloc */
     RawJSON_new,                    /* tp_new */
+    PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0,                              /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    0,                              /* tp_watched */
+#endif
 };
 
 
@@ -600,7 +622,7 @@ accept_indent_arg(PyObject* arg, unsigned &write_mode, unsigned &indent_count,
             Py_ssize_t len;
             const char* indentStr = PyUnicode_AsUTF8AndSize(arg, &len);
 
-            indent_count = len;
+            indent_count = static_cast<unsigned>(len);
             if (indent_count) {
                 indent_char = '\0';
                 while (len--) {
@@ -643,9 +665,15 @@ accept_write_mode_arg(PyObject* arg, unsigned &write_mode)
             }
             if (mode == WM_COMPACT) {
                 write_mode = WM_COMPACT;
-            } else if (mode & WM_SINGLE_LINE_ARRAY) {
-                write_mode = (unsigned) (write_mode | WM_SINGLE_LINE_ARRAY);
-            }
+	    } else {
+		write_mode = WM_PRETTY;
+		// if (mode & WM_PRETTY) {
+		//     write_mode = WM_PRETTY;
+		// }
+		if (mode & WM_SINGLE_LINE_ARRAY) {
+		    write_mode = (unsigned) (write_mode | WM_SINGLE_LINE_ARRAY);
+		}
+	    }
         } else {
             PyErr_SetString(PyExc_TypeError,
                             "write_mode must be a non-negative int");
@@ -804,7 +832,7 @@ accept_chunk_size_arg(PyObject* arg, size_t &chunk_size)
     if (arg != NULL && arg != Py_None) {
         if (PyLong_Check(arg)) {
             Py_ssize_t size = PyNumber_AsSsize_t(arg, PyExc_ValueError);
-            if (PyErr_Occurred() || size < 4 || size > UINT_MAX) {
+            if (PyErr_Occurred() || size < 4 || static_cast<long long>(size) > static_cast<long long>(UINT_MAX)) {
                 PyErr_SetString(PyExc_ValueError, "Invalid chunk_size, out of range");
                 return false;
             }
@@ -848,17 +876,28 @@ static unsigned check_expectsString(Document& d) {
 	return 0;
     {
 	Value::ConstMemberIterator it = d.FindMember("type");
-	if ((it != d.MemberEnd()) && it->value.IsString()) {
-	    if (strcmp(it->value.GetString(), "string") == 0)
-		return 1;
+	if (it != d.MemberEnd()) {
+	    if (it->value.IsString()) {
+		if ((it->value == Value::GetStringString()) ||
+		    (it->value == Value::GetPythonFunctionString()) ||
+		    (it->value == Value::GetPythonClassString()) ||
+		    (it->value == Value::GetPythonInstanceString()))
+		    return 1;
+	    } else if (it->value.IsArray()) {
+		if (it->value.Contains(Value::GetStringString()) ||
+		    it->value.Contains(Value::GetPythonFunctionString()) ||
+		    it->value.Contains(Value::GetPythonClassString()) ||
+		    it->value.Contains(Value::GetPythonInstanceString()))
+		    return 1;
+	    }
 	}
     }
     {
 	Value::ConstMemberIterator it = d.FindMember("subtype");
 	if ((it != d.MemberEnd()) && it->value.IsString()) {
-	    if ((strcmp(it->value.GetString(), "bytes") == 0) ||
-		(strcmp(it->value.GetString(), "string") == 0) ||
-		(strcmp(it->value.GetString(), "unicode") == 0))
+	    if ((it->value == Value::GetBytesString()) ||
+		(it->value == Value::GetStringString()) ||
+		(it->value == Value::GetUnicodeString()))
 		return 1;
 	}
     }
@@ -898,7 +937,7 @@ static bool isPaddedStr(const char* str, size_t str_len,
 }
 
 static bool endsWith(const char* jsonStr, size_t len, const char check) {
-    size_t i = len - 1;
+    int i = static_cast<int>(len) - 1;
     while (i >= 0) {
 	switch (jsonStr[i]) {
 	case ' ':
@@ -1240,7 +1279,7 @@ struct PyHandler {
         return true;
     }
 
-    bool EndObject(SizeType member_count, bool yggdrasilInstance=false) {
+    bool EndObject(SizeType, bool yggdrasilInstance=false) {
         const HandlerContext& ctx = stack.back();
 
         if (ctx.copiedKey)
@@ -1370,7 +1409,7 @@ struct PyHandler {
         return true;
     }
 
-    bool EndArray(SizeType elementCount) {
+    bool EndArray(SizeType) {
         const HandlerContext& ctx = stack.back();
 
         if (ctx.copiedKey)
@@ -1524,7 +1563,7 @@ struct PyHandler {
         return Handle(value);
     }
 
-    bool RawNumber(const char* str, SizeType length, bool copy) {
+    bool RawNumber(const char* str, SizeType length, bool) {
         PyObject* value;
         bool isFloat = false;
 
@@ -1638,14 +1677,28 @@ struct PyHandler {
 
         switch (usecLength) {
             case 9: if (!isdigit(str[17])) { return false; }
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
             case 8: if (!isdigit(str[16])) { return false; }
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
             case 7: if (!isdigit(str[15])) { return false; }
-            case 6: if (!isdigit(str[14])) { return false; } usecs += digit(14);
-            case 5: if (!isdigit(str[13])) { return false; } usecs += digit(13)*10;
-            case 4: if (!isdigit(str[12])) { return false; } usecs += digit(12)*100;
-            case 3: if (!isdigit(str[11])) { return false; } usecs += digit(11)*1000;
-            case 2: if (!isdigit(str[10])) { return false; } usecs += digit(10)*10000;
-            case 1: if (!isdigit(str[9])) { return false; } usecs += digit(9)*100000;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 6: if (!isdigit(str[14])) { return false; }
+		usecs += digit(14);
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 5: if (!isdigit(str[13])) { return false; }
+		usecs += digit(13)*10;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 4: if (!isdigit(str[12])) { return false; }
+		usecs += digit(12)*100;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 3: if (!isdigit(str[11])) { return false; }
+		usecs += digit(11)*1000;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 2: if (!isdigit(str[10])) { return false; }
+		usecs += digit(10)*10000;
+		RAPIDJSON_DELIBERATE_FALLTHROUGH;
+            case 1: if (!isdigit(str[9])) { return false; }
+		usecs += digit(9)*100000;
         }
 
         return true;
@@ -1830,7 +1883,7 @@ struct PyHandler {
     }
 
     template <typename YggSchemaValueType>
-    bool YggdrasilString(const char* str, SizeType length, bool copy, YggSchemaValueType& schema) {
+    bool YggdrasilString(const char* str, SizeType length, bool, YggSchemaValueType& schema) {
 	PyObject* value = NULL;
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	Value* x = new Value(str, length, allocator, schema);
@@ -1969,7 +2022,7 @@ PyDoc_STRVAR(loads_docstring,
 
 
 static PyObject*
-loads(PyObject* self, PyObject* args, PyObject* kwargs)
+loads(PyObject*, PyObject* args, PyObject* kwargs)
 {
     /* Converts a JSON encoded string to a Python object. */
 
@@ -2084,7 +2137,7 @@ PyDoc_STRVAR(load_docstring,
 
 
 static PyObject*
-load(PyObject* self, PyObject* args, PyObject* kwargs)
+load(PyObject*, PyObject* args, PyObject* kwargs)
 {
     /* Converts a JSON encoded stream to a Python object. */
 
@@ -2226,7 +2279,7 @@ load(PyObject* self, PyObject* args, PyObject* kwargs)
     if (chunkSizeObj && chunkSizeObj != Py_None) {
         if (PyLong_Check(chunkSizeObj)) {
             Py_ssize_t size = PyNumber_AsSsize_t(chunkSizeObj, PyExc_ValueError);
-            if (PyErr_Occurred() || size < 4 || size > UINT_MAX) {
+            if (PyErr_Occurred() || size < 4 || static_cast<long long>(size) > static_cast<long long>(UINT_MAX)) {
                 PyErr_SetString(PyExc_ValueError,
                                 "Invalid chunk_size, must be an integer between 4 and"
                                 " UINT_MAX");
@@ -2265,7 +2318,7 @@ static PyMemberDef decoder_members[] = {
     {"parse_mode",
      T_UINT, offsetof(DecoderObject, parseMode), READONLY,
      "The parse mode, whether comments and trailing commas are allowed."},
-    {NULL}
+    {NULL, 0, 0, 0, NULL}  /* Sentinel */
 };
 
 
@@ -2275,7 +2328,7 @@ static PyTypeObject Decoder_Type = {
     sizeof(DecoderObject),                    /* tp_basicsize */
     0,                                        /* tp_itemsize */
     0,                                        /* tp_dealloc */
-    0,                                        /* tp_print */
+    0,                                        /* tp_print or tp_vectorcall_offset */
     0,                                        /* tp_getattr */
     0,                                        /* tp_setattr */
     0,                                        /* tp_compare */
@@ -2309,6 +2362,19 @@ static PyTypeObject Decoder_Type = {
     0,                                        /* tp_alloc */
     decoder_new,                              /* tp_new */
     PyObject_Del,                             /* tp_free */
+    NULL,                                     /* tp_is_gc */
+    NULL,                                     /* tp_bases */
+    NULL,                                     /* tp_mro */
+    NULL,                                     /* tp_cache */
+    NULL,                                     /* tp_subclasses */
+    NULL,                                     /* tp_weaklist */
+    0,                                        /* tp_del */
+    0,                                        /* tp_version_tag */
+    0,                                        /* tp_finalize */
+    0,                                        /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    0,                                        /* tp_watched */
+#endif
 };
 
 
@@ -2500,7 +2566,7 @@ decoder_call(PyObject* self, PyObject* args, PyObject* kwargs)
     if (chunkSizeObj && chunkSizeObj != Py_None) {
         if (PyLong_Check(chunkSizeObj)) {
             Py_ssize_t size = PyNumber_AsSsize_t(chunkSizeObj, PyExc_ValueError);
-            if (PyErr_Occurred() || size < 4 || size > UINT_MAX) {
+            if (PyErr_Occurred() || size < 4 || static_cast<long long>(size) > static_cast<long long>(UINT_MAX)) {
                 PyErr_SetString(PyExc_ValueError,
                                 "Invalid chunk_size, must be an integer between 4 and"
                                 " UINT_MAX");
@@ -2729,7 +2795,7 @@ PythonAccept(
 				yggdrasilMode)
 
 #define ASSERT_VALID_SIZE(l) do {                                       \
-    if (l < 0 || l > UINT_MAX) {                                        \
+    if (l < 0 || static_cast<long long>(l) > static_cast<long long>(UINT_MAX)) {		\
         PyErr_SetString(PyExc_ValueError, "Out of range string size");  \
         return false;                                                   \
     } } while(0)
@@ -3265,7 +3331,8 @@ PythonAccept(
 	bool ret = x->SetPythonObjectRaw(object, allocator);
 	if (ret) {
 	    std::string unitsS = v->units->units->str();
-	    ret = x->SetUnits(unitsS.c_str(), unitsS.length());
+	    ret = x->SetUnits(unitsS.c_str(),
+			      static_cast<SizeType>(unitsS.length()));
 	}
 	if (ret)
 	    ret = x->Accept(*handler);
@@ -3418,8 +3485,8 @@ static bool python2document(PyObject* jsonObject, Document& d,
     bool error;
     bool empty = false;
 
-    if ((jsonStr != NULL) && (!isJSONDocument(jsonStr, jsonStrLen, &empty,
-					      expectsString)))
+    if ((jsonStr != NULL) && (!forSchema) && expectsString &&
+	(!isJSONDocument(jsonStr, jsonStrLen, &empty, expectsString)))
 	jsonStr = NULL;
 
     if (jsonStr == NULL) {
@@ -3476,7 +3543,7 @@ dumps_internal(
 				  yggdrasilMode)
 
 #define ASSERT_VALID_SIZE(l) do {                                       \
-    if (l < 0 || l > UINT_MAX) {                                        \
+    if (l < 0 || static_cast<long long>(l) > static_cast<long long>(UINT_MAX)) {		\
         PyErr_SetString(PyExc_ValueError, "Out of range string size");  \
         return false;                                                   \
     } } while(0)
@@ -4180,7 +4247,7 @@ PyDoc_STRVAR(dumps_docstring,
 
 
 static PyObject*
-dumps(PyObject* self, PyObject* args, PyObject* kwargs)
+dumps(PyObject*, PyObject* args, PyObject* kwargs)
 {
     /* Converts a Python object to a JSON-encoded string. */
 
@@ -4309,7 +4376,7 @@ PyDoc_STRVAR(dump_docstring,
 
 
 static PyObject*
-dump(PyObject* self, PyObject* args, PyObject* kwargs)
+dump(PyObject*, PyObject* args, PyObject* kwargs)
 {
     /* Converts a Python object to a JSON-encoded stream. */
 
@@ -4480,18 +4547,18 @@ static PyMemberDef encoder_members[] = {
     {"yggdrasil_mode",
      T_UINT, offsetof(EncoderObject, yggdrasilMode), READONLY,
      "Whether yggdrasil extension values shall be encoded in base64 or not."},
-    {NULL}
+    {NULL, 0, 0, 0, NULL}  /* Sentinel */
 };
 
 
 static PyObject*
-encoder_get_skip_invalid_keys(EncoderObject* e, void* closure)
+encoder_get_skip_invalid_keys(EncoderObject* e, void*)
 {
     return PyBool_FromLong(e->mappingMode & MM_SKIP_NON_STRING_KEYS);
 }
 
 static PyObject*
-encoder_get_sort_keys(EncoderObject* e, void* closure)
+encoder_get_sort_keys(EncoderObject* e, void*)
 {
     return PyBool_FromLong(e->mappingMode & MM_SORT_KEYS);
 }
@@ -4500,10 +4567,10 @@ encoder_get_sort_keys(EncoderObject* e, void* closure)
 
 static PyGetSetDef encoder_props[] = {
     {"skip_invalid_keys", (getter) encoder_get_skip_invalid_keys, NULL,
-     "Whether invalid keys shall be skipped."},
+     "Whether invalid keys shall be skipped.", NULL},
     {"sort_keys", (getter) encoder_get_sort_keys, NULL,
-     "Whether dictionary keys shall be sorted alphabetically."},
-    {NULL}
+     "Whether dictionary keys shall be sorted alphabetically.", NULL},
+    {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
 static PyTypeObject Encoder_Type = {
@@ -4512,7 +4579,7 @@ static PyTypeObject Encoder_Type = {
     sizeof(EncoderObject),                    /* tp_basicsize */
     0,                                        /* tp_itemsize */
     0,                                        /* tp_dealloc */
-    0,                                        /* tp_print */
+    0,                                        /* tp_print or tp_vectorcall_offset */
     0,                                        /* tp_getattr */
     0,                                        /* tp_setattr */
     0,                                        /* tp_compare */
@@ -4546,6 +4613,19 @@ static PyTypeObject Encoder_Type = {
     0,                                        /* tp_alloc */
     encoder_new,                              /* tp_new */
     PyObject_Del,                             /* tp_free */
+    NULL,                                     /* tp_is_gc */
+    NULL,                                     /* tp_bases */
+    NULL,                                     /* tp_mro */
+    NULL,                                     /* tp_cache */
+    NULL,                                     /* tp_subclasses */
+    NULL,                                     /* tp_weaklist */
+    0,                                        /* tp_del */
+    0,                                        /* tp_version_tag */
+    0,                                        /* tp_finalize */
+    0,                                        /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    0,                                        /* tp_watched */
+#endif
 };
 
 
@@ -4912,6 +4992,12 @@ PyDoc_STRVAR(validator_doc,
              " string or Python dictionary.");
 
 
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef validator_methods[] = {
     {"validate", (PyCFunction) validator_validate,
      METH_VARARGS | METH_KEYWORDS,
@@ -4926,8 +5012,13 @@ static PyMethodDef validator_methods[] = {
     {"check_schema", (PyCFunction) validator_check_schema,
      METH_VARARGS | METH_KEYWORDS | METH_CLASS,
      "Validate a schema against the JSON metaschema."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, ""}  /* Sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static PyTypeObject Validator_Type = {
@@ -4936,7 +5027,7 @@ static PyTypeObject Validator_Type = {
     sizeof(ValidatorObject),        /* tp_basicsize */
     0,                              /* tp_itemsize */
     (destructor) validator_dealloc, /* tp_dealloc */
-    0,                              /* tp_print */
+    0,                              /* tp_print or tp_vectorcall_offset */
     0,                              /* tp_getattr */
     0,                              /* tp_setattr */
     0,                              /* tp_compare */
@@ -4970,6 +5061,19 @@ static PyTypeObject Validator_Type = {
     0,                              /* tp_alloc */
     validator_new,                  /* tp_new */
     PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0,                              /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    0,                              /* tp_watched */
+#endif
 };
 
 
@@ -5014,7 +5118,8 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     }
     bool accept;
 
-    if (validator.RequiresPython() || d.RequiresPython()) {
+    if (_dont_thread_rapidjson_calls &&
+	(validator.RequiresPython() || d.RequiresPython())) {
 	accept = d.Accept(validator);
     } else {
 	Py_BEGIN_ALLOW_THREADS
@@ -5161,7 +5266,7 @@ static PyObject* validator_validate(PyObject* self, PyObject* args, PyObject* kw
 { return validator_call(self, args, kwargs); }
 
 
-static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject* kwargs)
+static PyObject* validator_check_schema(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject;
     PyObject* jsonStandardObj = NULL;
@@ -5273,7 +5378,8 @@ static PyObject* validator_check_schema(PyObject* cls, PyObject* args, PyObject*
     SchemaValidator validator(metaschema);
     bool accept;
 
-    if (validator.RequiresPython() || d.RequiresPython()) {
+    if (_dont_thread_rapidjson_calls &&
+	(validator.RequiresPython() || d.RequiresPython())) {
 	accept = d.Accept(validator);
     } else {
 	Py_BEGIN_ALLOW_THREADS
@@ -5335,7 +5441,8 @@ static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwa
     SchemaValidator v2(*((ValidatorObject*)validator2)->schema);
     bool accept;
     
-    if (v1.RequiresPython() || v2.RequiresPython()) {
+    if (_dont_thread_rapidjson_calls &&
+	(v1.RequiresPython() || v2.RequiresPython())) {
 	accept = v1.Compare(v2);
     } else {
 	Py_BEGIN_ALLOW_THREADS
@@ -5401,7 +5508,7 @@ PyDoc_STRVAR(validate_docstring,
 
 
 static PyObject*
-validate(PyObject* self, PyObject* args, PyObject* kwargs)
+validate(PyObject*, PyObject* args, PyObject* kwargs)
 {
 
     if (!PyTuple_Check(args))
@@ -5476,7 +5583,7 @@ PyDoc_STRVAR(encode_schema_docstring,
 
 
 static PyObject*
-encode_schema(PyObject* self, PyObject* args, PyObject* kwargs)
+encode_schema(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject;
     int minimalSchema = 0;
@@ -5604,7 +5711,7 @@ PyDoc_STRVAR(get_metaschema_docstring,
 
 
 static PyObject*
-rj_get_metaschema(PyObject* self, PyObject* args, PyObject* kwargs)
+rj_get_metaschema(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject* objectHook = NULL;
     PyObject* numberModeObj = NULL;
@@ -5685,7 +5792,7 @@ PyDoc_STRVAR(compare_schemas_docstring,
 
 
 static PyObject*
-compare_schemas(PyObject* self, PyObject* args, PyObject* kwargs)
+compare_schemas(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject *validatorObject1 = NULL, *validatorObject2 = NULL;
     int dontRaise = 0;
@@ -5759,7 +5866,7 @@ PyDoc_STRVAR(generate_data_docstring,
 
 
 static PyObject*
-generate_data(PyObject* self, PyObject* args, PyObject* kwargs)
+generate_data(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject *validatorObject = NULL;
     static char const* kwlist[] = {
@@ -5803,7 +5910,7 @@ PyDoc_STRVAR(as_pure_json_docstring,
 
 
 static PyObject*
-as_pure_json(PyObject* self, PyObject* args, PyObject* kwargs)
+as_pure_json(PyObject*, PyObject* args, PyObject* kwargs)
 {
     PyObject* jsonObject = NULL;
     PyObject* decoderObject = NULL;
@@ -5938,6 +6045,12 @@ PyDoc_STRVAR(normalizer_doc,
              " string or Python dictionary.");
 
 
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef normalizer_methods[] = {
     {"validate", (PyCFunction) normalizer_validate,
      METH_VARARGS | METH_KEYWORDS,
@@ -5954,8 +6067,13 @@ static PyMethodDef normalizer_methods[] = {
     {"check_schema", (PyCFunction) normalizer_check_schema,
      METH_VARARGS | METH_KEYWORDS | METH_CLASS,
      "Validate a schema against the JSON metaschema."},
-    {NULL}  /* Sentinel */
+    {NULL, NULL, 0, ""}  /* Sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static PyTypeObject Normalizer_Type = {
@@ -5964,7 +6082,7 @@ static PyTypeObject Normalizer_Type = {
     sizeof(NormalizerObject),       /* tp_basicsize */
     0,                              /* tp_itemsize */
     (destructor) normalizer_dealloc, /* tp_dealloc */
-    0,                              /* tp_print */
+    0,                              /* tp_print or tp_vectorcall_offset */
     0,                              /* tp_getattr */
     0,                              /* tp_setattr */
     0,                              /* tp_compare */
@@ -5998,6 +6116,19 @@ static PyTypeObject Normalizer_Type = {
     0,                              /* tp_alloc */
     normalizer_new,                 /* tp_new */
     PyObject_Del,                   /* tp_free */
+    NULL,                           /* tp_is_gc */
+    NULL,                           /* tp_bases */
+    NULL,                           /* tp_mro */
+    NULL,                           /* tp_cache */
+    NULL,                           /* tp_subclasses */
+    NULL,                           /* tp_weaklist */
+    0,                              /* tp_del */
+    0,                              /* tp_version_tag */
+    0,                              /* tp_finalize */
+    0,                              /* tp_vectorcall */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
+    0,                              /* tp_watched */
+#endif
 };
 
 
@@ -6042,11 +6173,12 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
     }
     bool accept;
 
-    if (normalizer.RequiresPython() || d.RequiresPython()) {
+    if (_dont_thread_rapidjson_calls &&
+	(normalizer.RequiresPython() || d.RequiresPython())) {
 	accept = d.Accept(normalizer);
     } else {
 	Py_BEGIN_ALLOW_THREADS
-        accept = d.Accept(normalizer);
+	accept = d.Accept(normalizer);
 	Py_END_ALLOW_THREADS
     }
 
@@ -6232,7 +6364,8 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
     SchemaValidator validator(*(v->schema));
     bool accept;
 
-    if (validator.RequiresPython() || d.RequiresPython()) {
+    if (_dont_thread_rapidjson_calls &&
+	(validator.RequiresPython() || d.RequiresPython())) {
 	accept = d.Accept(validator);
     } else {
 	Py_BEGIN_ALLOW_THREADS
@@ -6279,7 +6412,8 @@ static PyObject* normalizer_compare(PyObject* self, PyObject* args, PyObject* kw
     SchemaValidator v1(*((NormalizerObject*)self)->schema);
     SchemaValidator v2(*((NormalizerObject*)validator2)->schema);
     bool accept;
-    if (v1.RequiresPython() || v2.RequiresPython()) {
+    if (_dont_thread_rapidjson_calls &&
+	(v1.RequiresPython() || v2.RequiresPython())) {
 	accept = v1.Compare(v2);
     } else {
 	Py_BEGIN_ALLOW_THREADS
@@ -6345,7 +6479,7 @@ PyDoc_STRVAR(normalize_docstring,
 
 
 static PyObject*
-normalize(PyObject* self, PyObject* args, PyObject* kwargs)
+normalize(PyObject*, PyObject* args, PyObject* kwargs)
 {
 
     if (!PyTuple_Check(args))
@@ -6475,6 +6609,12 @@ add_submodule(PyObject* m, const char* cname, PyModuleDef* module_def) {
 }
 
 
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+#endif
 static PyMethodDef functions[] = {
     {"loads", (PyCFunction) loads, METH_VARARGS | METH_KEYWORDS,
      loads_docstring},
@@ -6505,6 +6645,11 @@ static PyMethodDef functions[] = {
      as_pure_json_docstring},
     {NULL, NULL, 0, NULL} /* sentinel */
 };
+#ifdef __GNUC__
+#if !defined(__MINGW64_VERSION_MAJOR) || (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR > 5)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 
 static int

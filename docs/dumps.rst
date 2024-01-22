@@ -62,7 +62,7 @@
       >>> dumps({(0,): 'empty tuple', True: 'a true value'})
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      TypeError: keys must be strings
+      TypeError: {(0,): 'empty tuple', True: 'a true value'} is not JSON serializable
       >>> dumps({(0,): 'empty tuple', True: 'a true value'}, skipkeys=True)
       '{}'
 
@@ -94,7 +94,7 @@
    .. code-block:: pycon
 
       >>> dumps([1, 2, {'three': 3, 'four': 4}])
-      '[1,2,{"four":4,"three":3}]'
+      '[1,2,{"three":3,"four":4}]'
 
    With :data:`WM_PRETTY` it will use ``RapidJSON``\ 's ``PrettyWriter``, with a default
    `indent` (see below) of four spaces:
@@ -106,8 +106,8 @@
           1,
           2,
           {
-              "four": 4,
-              "three": 3
+              "three": 3,
+              "four": 4
           }
       ]
 
@@ -116,7 +116,7 @@
    .. code-block:: pycon
 
       >>> print(dumps([1, 2, 'three', [4, 5]], write_mode=WM_SINGLE_LINE_ARRAY))
-      [1, 2, 'three', [4, 5]]
+      [1, 2, "three", [4, 5]]
       >>> print(dumps([1, 2, {'three': 3, 'four': 4}], write_mode=WM_SINGLE_LINE_ARRAY))
       [1, 2, {
               "three": 3,
@@ -148,8 +148,8 @@
       1,
       2,
       {
-      "four": 4,
-      "three": 3
+      "three": 3,
+      "four": 4
       }
       ]
       >>> print(dumps([1, 2, {'three': 3, 'four': 4}], indent=2))
@@ -157,8 +157,8 @@
         1,
         2,
         {
-          "four": 4,
-          "three": 3
+          "three": 3,
+          "four": 4
         }
       ]
       >>> print(dumps([1, 2, {'three': 3, 'four': 4}], indent=""))
@@ -166,8 +166,8 @@
       1,
       2,
       {
-      "four": 4,
-      "three": 3
+      "three": 3,
+      "four": 4
       }
       ]
       >>> print(dumps([1, 2, {'three': 3, 'four': 4}], indent="  "))
@@ -175,18 +175,18 @@
         1,
         2,
         {
-          "four": 4,
-          "three": 3
+          "three": 3,
+          "four": 4
         }
       ]
       >>> print(dumps([1, 2, {'three': 3, 'four': 4}], indent="\t"))
       [
-              1,
-              2,
-              {
-                      "three": 3,
-                      "four": 4
-              }
+      ...1,
+      ...2,
+      ...{
+      ..."three": 3,
+      ..."four": 4
+      ...}
       ]
 
 
@@ -208,7 +208,7 @@
       >>> dumps(point)
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      TypeError: <__main__.Point object at …> is not JSON serializable
+      TypeError: <....Point object at ...> is not JSON serializable even with yggdrasil extension
       >>> def point_jsonifier(obj):
       ...   if isinstance(obj, Point):
       ...     return {'x': obj.x, 'y': obj.y}
@@ -291,7 +291,7 @@
       >>> dumps(pi)
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      TypeError: Decimal(…) is not JSON serializable
+      TypeError: Decimal(...) is not JSON serializable
 
    while using :data:`NM_DECIMAL` they will be serialized as their textual representation
    like any other float value:
@@ -345,7 +345,7 @@
       >>> dumps({'date': date, 'time': time, 'timestamp': right_now})
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      TypeError: datetime(…) is not JSON serializable
+      TypeError: datetime.date(...) is not JSON serializable
 
    When `datetime_mode` is set to :data:`DM_ISO8601` those values are serialized using the
    common `ISO 8601`_ format:
@@ -445,7 +445,7 @@
       >>> dumps(random_uuid)
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      TypeError: UUID(…) is not JSON serializable
+      TypeError: UUID(...) is not JSON serializable
       >>> dumps(random_uuid, uuid_mode=UM_CANONICAL) # doctest: +SKIP
       '"be576345-65b5-4fc2-92c5-94e2f82e38fd"'
       >>> dumps(random_uuid, uuid_mode=UM_HEX) # doctest: +SKIP
@@ -519,7 +519,7 @@
       >>> dumps(lt, iterable_mode=IM_ONLY_LISTS)
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      TypeError: <time.struct_time …> is not JSON serializable
+      TypeError: time.struct_time(...) is not JSON serializable
       >>> dumps(ml, iterable_mode=IM_ONLY_LISTS)
       Traceback (most recent call last):
         ...
@@ -552,7 +552,7 @@
       >>> dumps(lt, iterable_mode=IM_ONLY_LISTS, default=bad_timestruct)
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      ValueError: (…) is not JSON serializable
+      ValueError: (...) is not JSON serializable
 
 
    .. dumps-mapping-mode:
@@ -579,7 +579,7 @@
       >>> dumps(c, mapping_mode=MM_ONLY_DICTS)
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      TypeError: Counter(…) is not JSON serializable
+      TypeError: Counter(...) is not JSON serializable
 
    and thus you can use the `default` argument:
 
@@ -615,7 +615,7 @@
       >>> dumps({-1: 'minus-one'})
       Traceback (most recent call last):
         File "<stdin>", line 1, in <module>
-      TypeError: keys must be strings
+      TypeError: {-1: 'minus-one'} is not JSON serializable
 
    Setting `mapping_mode` to ``MM_COERCE_KEYS_TO_STRINGS`` such keys will be converted to
    their string representation:
