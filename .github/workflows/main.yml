@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements-test.txt
-          pip install --config-settings=cmake.build-type=Debug --config-settings=cmake.define.RAPIDJSON_CHECK_PYREFS:BOOL=ON -v .
+          pip install --config-settings=cmake.build-type="Debug" --config-settings=cmake.define.RAPIDJSON_CHECK_PYREFS:BOOL=ON -v .
           # pip install --config-settings=cmake.build-type=Debug -v .
 
       - run: |
