@@ -122,7 +122,7 @@ jobs:
           CIBW_TEST_COMMAND: "pytest -sv {project}/tests"
           CIBW_SKIP: "cp2* cp33* cp34* cp35* cp36* cp37* pp* cp310-manylinux_i686 cp311-manylinux_i686 *-musllinux_*"
           CIBW_ENVIRONMENT: "PIP_ONLY_BINARY=numpy"
-          CIBW_BEFORE_BUILD: python -m pip install oldest-supported-numpy
+          # CIBW_BEFORE_BUILD: python -m pip install oldest-supported-numpy
           # CIBW_PRERELEASE_PYTHONS: True
 
       - name: Upload artifacts
