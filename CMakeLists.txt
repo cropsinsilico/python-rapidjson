@@ -11,8 +11,8 @@ endif()
 find_package(
   ${PYTHON_PREFIX} COMPONENTS
   Interpreter Development.Module NumPy REQUIRED)
-if (${PYTHON_PREFIX}_VERSION VERSION_LESS "3.8.0")
-  message(FATAL_ERROR "Only Python 3.8+ is supported.")
+if (${PYTHON_PREFIX}_VERSION VERSION_LESS "3.7.0")
+  message(FATAL_ERROR "Only Python 3.7+ is supported.")
 endif()
 
 if (PYTHON_PREFIX STREQUAL "Python")
