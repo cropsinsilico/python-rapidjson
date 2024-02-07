@@ -602,7 +602,9 @@ static PyTypeObject RawJSON_Type = {
     0,                              /* tp_del */
     0,                              /* tp_version_tag */
     0,                              /* tp_finalize */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 8))
     0,                              /* tp_vectorcall */
+#endif
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
     0,                              /* tp_watched */
 #endif
@@ -2371,7 +2373,9 @@ static PyTypeObject Decoder_Type = {
     0,                                        /* tp_del */
     0,                                        /* tp_version_tag */
     0,                                        /* tp_finalize */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 8))
     0,                                        /* tp_vectorcall */
+#endif
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
     0,                                        /* tp_watched */
 #endif
@@ -4622,7 +4626,9 @@ static PyTypeObject Encoder_Type = {
     0,                                        /* tp_del */
     0,                                        /* tp_version_tag */
     0,                                        /* tp_finalize */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 8))
     0,                                        /* tp_vectorcall */
+#endif
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
     0,                                        /* tp_watched */
 #endif
@@ -5070,7 +5076,9 @@ static PyTypeObject Validator_Type = {
     0,                              /* tp_del */
     0,                              /* tp_version_tag */
     0,                              /* tp_finalize */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 8))
     0,                              /* tp_vectorcall */
+#endif
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
     0,                              /* tp_watched */
 #endif
@@ -6125,7 +6133,9 @@ static PyTypeObject Normalizer_Type = {
     0,                              /* tp_del */
     0,                              /* tp_version_tag */
     0,                              /* tp_finalize */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 8))
     0,                              /* tp_vectorcall */
+#endif
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
     0,                              /* tp_watched */
 #endif

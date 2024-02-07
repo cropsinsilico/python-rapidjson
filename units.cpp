@@ -305,7 +305,9 @@ static PyTypeObject Units_Type = {
     0,                              /* tp_del */
     0,                              /* tp_version_tag */
     0,                              /* tp_finalize */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 8))
     0,                              /* tp_vectorcall */
+#endif
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
     0,                              /* tp_watched */
 #endif
@@ -716,7 +718,9 @@ static PyTypeObject QuantityArray_Type = {
     0,                                    /* tp_del */
     0,                                    /* tp_version_tag */
     0,                                    /* tp_finalize */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 8))
     0,                                    /* tp_vectorcall */
+#endif
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
     0,                                    /* tp_watched */
 #endif
@@ -788,7 +792,9 @@ static PyTypeObject Quantity_Type = {
     0,                              /* tp_del */
     0,                              /* tp_version_tag */
     0,                              /* tp_finalize */
+#if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 8))
     0,                              /* tp_vectorcall */
+#endif
 #if (PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 12))
     0,                              /* tp_watched */
 #endif
