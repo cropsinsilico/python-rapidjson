@@ -60,6 +60,13 @@ def test_notEncoded():
       "properties": {
           "a": {"type": "boolean", "default": True}}},
      {"a": True}, {"a": True}),
+    ({"type": "array", "items": [{"type": "string"}],
+      "allowSingular": True},
+     "hello", ["hello"]),
+    ({'allowSingular': True,
+      'items': [{'subtype': 'string', 'type': 'scalar'}],
+      'type': 'array'},
+     b"hello", [b"hello"]),
 ))
 def test_normalize(schema, json, normalized):
     normalizer = rj.Normalizer(schema)

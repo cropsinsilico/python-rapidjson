@@ -873,74 +873,92 @@ accept_parse_mode_arg(PyObject* arg, unsigned &parse_mode)
 // Python/Document Conversion //
 ////////////////////////////////
 
-static unsigned check_allowsString(Document& d) {
+#define TTYPE_ const Value*
+
+static unsigned check_types(const Value& d,
+			    const std::vector<TTYPE_>& types,
+			    const std::vector<TTYPE_>& subtypes,
+			    bool relaxed = false) {
     if (!d.IsObject())
 	return 0;
     {
 	Value::ConstMemberIterator it = d.FindMember("type");
 	if (it != d.MemberEnd()) {
 	    if (it->value.IsString()) {
-		if ((it->value == Value::GetStringString()) ||
-		    (it->value == Value::GetPythonFunctionString()) ||
-		    (it->value == Value::GetPythonClassString()) ||
-		    (it->value == Value::GetPythonInstanceString()) ||
-		    (it->value == Value::GetAnyString()))
-		    return 1;
+		for (typename std::vector<TTYPE_>::const_iterator tt = types.begin();
+		     tt != types.end(); tt++) {
+		    if (it->value == **tt)
+			return 1;
+		}
+		if (relaxed && it->value == Value::GetArrayString()) {
+		    Value::ConstMemberIterator sing = d.FindMember("allowSingular");
+		    Value::ConstMemberIterator items = d.FindMember("items");
+		    if (sing != d.MemberEnd() && sing->value.IsBool() &&
+			sing->value.GetBool() && items != d.MemberEnd()) {
+			if (items->value.IsArray() &&
+			    items->value.Size() == 1) {
+			    if (check_types(items->value[0],
+					    types, subtypes, relaxed))
+				return 1;
+			} else if (items->value.IsObject()) {
+			    if (check_types(items->value,
+					    types, subtypes, relaxed))
+				return 1;
+			}
+		    }
+
+		}
 	    } else if (it->value.IsArray()) {
-		if (it->value.Contains(Value::GetStringString()) ||
-		    it->value.Contains(Value::GetPythonFunctionString()) ||
-		    it->value.Contains(Value::GetPythonClassString()) ||
-		    it->value.Contains(Value::GetPythonInstanceString()) ||
-		    it->value.Contains(Value::GetAnyString()))
-		    return 1;
+		for (typename std::vector<TTYPE_>::const_iterator tt = types.begin();
+		     tt != types.end(); tt++) {
+		    if (it->value.Contains(**tt))
+			return 1;
+		}
 	    }
 	}
     }
     {
 	Value::ConstMemberIterator it = d.FindMember("subtype");
 	if ((it != d.MemberEnd()) && it->value.IsString()) {
-	    if ((it->value == Value::GetBytesString()) ||
-		(it->value == Value::GetStringString()) ||
-		(it->value == Value::GetUnicodeString()) ||
-		(it->value == Value::GetAnyString()))
-		return 1;
-	}
-    }
-    return 0;
-}
-static unsigned check_expectsString(Document& d) {
-    if (!d.IsObject())
-	return 0;
-    {
-	Value::ConstMemberIterator it = d.FindMember("type");
-	if (it != d.MemberEnd()) {
-	    if (it->value.IsString()) {
-		if ((it->value == Value::GetStringString()) ||
-		    (it->value == Value::GetPythonFunctionString()) ||
-		    (it->value == Value::GetPythonClassString()) ||
-		    (it->value == Value::GetPythonInstanceString()))
-		    return 1;
-	    } else if (it->value.IsArray()) {
-		if (it->value.Contains(Value::GetStringString()) ||
-		    it->value.Contains(Value::GetPythonFunctionString()) ||
-		    it->value.Contains(Value::GetPythonClassString()) ||
-		    it->value.Contains(Value::GetPythonInstanceString()))
+	    for (typename std::vector<TTYPE_>::const_iterator tt = subtypes.begin();
+		 tt != subtypes.end(); tt++) {
+		if (it->value == **tt)
 		    return 1;
 	    }
-	}
-    }
-    {
-	Value::ConstMemberIterator it = d.FindMember("subtype");
-	if ((it != d.MemberEnd()) && it->value.IsString()) {
-	    if ((it->value == Value::GetBytesString()) ||
-		(it->value == Value::GetStringString()) ||
-		(it->value == Value::GetUnicodeString()))
-		return 1;
 	}
     }
     return 0;
 }
 
+static unsigned check_allowsString(Document& d) {
+    if (!d.IsObject())
+	return 0;
+    std::vector<TTYPE_> types, subtypes;
+    types.push_back(&Value::GetStringString());
+    types.push_back(&Value::GetPythonFunctionString());
+    types.push_back(&Value::GetPythonClassString());
+    types.push_back(&Value::GetPythonInstanceString());
+    types.push_back(&Value::GetAnyString());
+    subtypes.push_back(&Value::GetBytesString());
+    subtypes.push_back(&Value::GetStringString());
+    subtypes.push_back(&Value::GetUnicodeString());
+    return check_types(d, types, subtypes, true);
+}
+static unsigned check_expectsString(Document& d) {
+    if (!d.IsObject())
+	return 0;
+    std::vector<TTYPE_> types, subtypes;
+    types.push_back(&Value::GetStringString());
+    types.push_back(&Value::GetPythonFunctionString());
+    types.push_back(&Value::GetPythonClassString());
+    types.push_back(&Value::GetPythonInstanceString());
+    subtypes.push_back(&Value::GetBytesString());
+    subtypes.push_back(&Value::GetStringString());
+    subtypes.push_back(&Value::GetUnicodeString());
+    return check_types(d, types, subtypes, false);
+}
+
+#undef TTYPE_
 
 static bool isEmptyStr(const char* jsonStr, size_t len) {
     size_t i = 0;
