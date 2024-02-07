@@ -16,9 +16,9 @@ if (${PYTHON_PREFIX}_VERSION VERSION_LESS "3.7.0")
 endif()
 
 if (PYTHON_PREFIX STREQUAL "Python")
-  Python_add_library(rapidjson MODULE rapidjson.cpp)
+  Python_add_library(rapidjson MODULE ${CMAKE_CURRENT_SOURCE_DIR}/rapidjson.cpp)
 else()
-  Python3_add_library(rapidjson MODULE rapidjson.cpp)
+  Python3_add_library(rapidjson MODULE ${CMAKE_CURRENT_SOURCE_DIR}/rapidjson.cpp)
 endif()
 
 target_include_directories(rapidjson PUBLIC ${RAPIDJSON_INCLUDE_DIRS})

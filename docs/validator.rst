@@ -74,4 +74,4 @@
          >>> validate('[x]')
          Traceback (most recent call last):
            File "<stdin>", line 1, in <module>
-         rapidjson.JSONDecodeError: Invalid JSON when creating a document (expectsString = 0)
+         rapidjson.JSONDecodeError: Invalid JSON when creating a document (expectsString = 0, allowsString = 0)

@@ -873,6 +873,41 @@ accept_parse_mode_arg(PyObject* arg, unsigned &parse_mode)
 // Python/Document Conversion //
 ////////////////////////////////
 
+static unsigned check_allowsString(Document& d) {
+    if (!d.IsObject())
+	return 0;
+    {
+	Value::ConstMemberIterator it = d.FindMember("type");
+	if (it != d.MemberEnd()) {
+	    if (it->value.IsString()) {
+		if ((it->value == Value::GetStringString()) ||
+		    (it->value == Value::GetPythonFunctionString()) ||
+		    (it->value == Value::GetPythonClassString()) ||
+		    (it->value == Value::GetPythonInstanceString()) ||
+		    (it->value == Value::GetAnyString()))
+		    return 1;
+	    } else if (it->value.IsArray()) {
+		if (it->value.Contains(Value::GetStringString()) ||
+		    it->value.Contains(Value::GetPythonFunctionString()) ||
+		    it->value.Contains(Value::GetPythonClassString()) ||
+		    it->value.Contains(Value::GetPythonInstanceString()) ||
+		    it->value.Contains(Value::GetAnyString()))
+		    return 1;
+	    }
+	}
+    }
+    {
+	Value::ConstMemberIterator it = d.FindMember("subtype");
+	if ((it != d.MemberEnd()) && it->value.IsString()) {
+	    if ((it->value == Value::GetBytesString()) ||
+		(it->value == Value::GetStringString()) ||
+		(it->value == Value::GetUnicodeString()) ||
+		(it->value == Value::GetAnyString()))
+		return 1;
+	}
+    }
+    return 0;
+}
 static unsigned check_expectsString(Document& d) {
     if (!d.IsObject())
 	return 0;
@@ -3453,6 +3488,7 @@ static bool python2document(PyObject* jsonObject, Document& d,
 			    unsigned mappingMode,
 			    unsigned yggdrasilMode,
 			    unsigned expectsString,
+			    unsigned allowsString,
 			    bool forSchema = false,
 			    bool forceObject = false,
 			    bool* isEmptyString = NULL,
@@ -3506,7 +3542,7 @@ static bool python2document(PyObject* jsonObject, Document& d,
         Py_BEGIN_ALLOW_THREADS
         error = d.Parse(jsonStr).HasParseError();
         Py_END_ALLOW_THREADS
-	if ((error || d.IsNumber()) && expectsString) {
+	if ((error || d.IsNumber()) && (expectsString || allowsString)) {
 	    error = (!PythonAccept(&d, jsonObject, numberMode, datetimeMode,
 				   uuidMode, bytesMode, iterableMode,
 				   mappingMode, yggdrasilMode));
@@ -3519,7 +3555,7 @@ static bool python2document(PyObject* jsonObject, Document& d,
     }
 
     if (error) {
-        PyErr_Format(decode_error, "Invalid JSON when creating a document (expectsString = %d)", (int)expectsString);
+        PyErr_Format(decode_error, "Invalid JSON when creating a document (expectsString = %d, allowsString = %d)", (int)expectsString, (int)allowsString);
 	return false;
     }
     return true;
@@ -4985,6 +5021,7 @@ typedef struct {
     unsigned mappingMode;
     unsigned yggdrasilMode;
     unsigned expectsString;
+    unsigned allowsString;
 } ValidatorObject;
 
 
@@ -5111,7 +5148,8 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     bool forceObject = (notEncoded > 0);
     if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
 			 v->uuidMode, v->bytesMode, v->iterableMode,
-			 v->mappingMode, v->yggdrasilMode, v->expectsString,
+			 v->mappingMode, v->yggdrasilMode,
+			 v->expectsString, v->allowsString,
 			 false, forceObject, &isEmptyString, &isPythonDoc))
 	return NULL;
 
@@ -5246,7 +5284,7 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
     Document d;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, yggdrasilMode, 0, true))
+			 mappingMode, yggdrasilMode, 0, 0, true))
 	return NULL;
 
     ValidatorObject* v = (ValidatorObject*) type->tp_alloc(type, 0);
@@ -5265,6 +5303,7 @@ static PyObject* validator_new(PyTypeObject* type, PyObject* args, PyObject* kwa
     v->mappingMode = mappingMode;
     v->yggdrasilMode = yggdrasilMode;
     v->expectsString = check_expectsString(d);
+    v->allowsString = check_allowsString(d);
 
     return (PyObject*) v;
 }
@@ -5366,7 +5405,7 @@ static PyObject* validator_check_schema(PyObject*, PyObject* args, PyObject* kwa
     Document d;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, yggdrasilMode, 0, true))
+			 mappingMode, yggdrasilMode, 0, 0, true))
 	return NULL;
 
     Document d_meta;
@@ -5679,7 +5718,7 @@ encode_schema(PyObject*, PyObject* args, PyObject* kwargs)
     bool isPythonDoc = false;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, yggdrasilMode, 0, false, true,
+			 mappingMode, yggdrasilMode, 0, 0, false, true,
 			 &isEmptyString, &isPythonDoc))
 	return NULL;
 
@@ -6005,7 +6044,7 @@ as_pure_json(PyObject*, PyObject* args, PyObject* kwargs)
     bool isPythonDoc = false;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, yggdrasilMode, 0, false, false,
+			 mappingMode, yggdrasilMode, 0, 0, false, false,
 			 &isEmptyString, &isPythonDoc))
 	return NULL;
 
@@ -6040,6 +6079,7 @@ typedef struct {
     unsigned mappingMode;
     unsigned yggdrasilMode;
     unsigned expectsString;
+    unsigned allowsString;
 } NormalizerObject;
 
 
@@ -6168,7 +6208,8 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
     bool forceObject = (notEncoded > 0);
     if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
 			 v->uuidMode, v->bytesMode, v->iterableMode,
-			 v->mappingMode, v->yggdrasilMode, v->expectsString,
+			 v->mappingMode, v->yggdrasilMode,
+			 v->expectsString, v->allowsString,
 			 false, forceObject, &isEmptyString, &isPythonDoc))
 	return NULL;
     
@@ -6316,7 +6357,7 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
     Document d;
     if (!python2document(jsonObject, d, numberMode, datetimeMode,
 			 uuidMode, bytesMode, iterableMode,
-			 mappingMode, yggdrasilMode, 0, true))
+			 mappingMode, yggdrasilMode, 0, 0, true))
 	return NULL;
 
     NormalizerObject* v = (NormalizerObject*) type->tp_alloc(type, 0);
@@ -6335,6 +6376,7 @@ static PyObject* normalizer_new(PyTypeObject* type, PyObject* args, PyObject* kw
     v->mappingMode = mappingMode;
     v->yggdrasilMode = yggdrasilMode;
     v->expectsString = check_expectsString(d);
+    v->allowsString = check_allowsString(d);
 
     return (PyObject*) v;
 }
@@ -6367,7 +6409,8 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
     bool forceObject = (notEncoded > 0);
     if (!python2document(jsonObject, d, v->numberMode, v->datetimeMode,
 			 v->uuidMode, v->bytesMode, v->iterableMode,
-			 v->mappingMode, v->yggdrasilMode, v->expectsString,
+			 v->mappingMode, v->yggdrasilMode,
+			 v->expectsString, v->allowsString,
 			 false, forceObject, &isEmptyString, &isPythonDoc))
 	return NULL;
 
