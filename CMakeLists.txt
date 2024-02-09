@@ -15,10 +15,49 @@ if (${PYTHON_PREFIX}_VERSION VERSION_LESS "3.7.0")
   message(FATAL_ERROR "Only Python 3.7+ is supported.")
 endif()
 
+set(PYRJ_SRC "${CMAKE_CURRENT_SOURCE_DIR}/rapidjson.cpp")
+
+if (PYRJ_ALTERNATE_MODULE)
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/replace_module.cmake"
+  [=[
+  file(READ "${SOURCE}" TEXT)
+  string(REPLACE "\"rapidjson\"" "\"${PYRJ_ALTERNATE_MODULE}\"" TEXT "${TEXT}")
+  file(WRITE "${TARGET}" "${TEXT}")
+  ]=])
+
+  file(GLOB PYRJ_CPP LIST_DIRECTORIES false
+       "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+  message(STATUS "PYRJ_CPP = ${PYRJ_CPP}")
+  foreach(src IN LISTS PYRJ_CPP)
+    set(base)
+    cmake_path(GET src FILENAME base)
+    cmake_path(APPEND CMAKE_CURRENT_BINARY_DIR ${base}
+               OUTPUT_VARIABLE dst)
+    message(STATUS "Vendoring ${base} from ${src} to ${dst}")
+    list(APPEND ALT_PYRJ_CPP ${dst})
+    add_custom_command(
+      OUTPUT "${dst}"
+      COMMAND "${CMAKE_COMMAND}"
+              "-DSOURCE=${src}"
+	      "-DTARGET=${dst}"
+	      -P "${CMAKE_CURRENT_BINARY_DIR}/replace_module.cmake"
+	      DEPENDS "${src}" "${CMAKE_CURRENT_BINARY_DIR}/replace_module.cmake")
+  endforeach()
+  set(PYRJ_SRC "${CMAKE_CURRENT_BINARY_DIR}/rapidjson.cpp")
+  add_custom_target(alt_rapidjson DEPENDS ${ALT_PYRJ_CPP})
+endif()
+
 if (PYTHON_PREFIX STREQUAL "Python")
-  Python_add_library(rapidjson MODULE ${CMAKE_CURRENT_SOURCE_DIR}/rapidjson.cpp)
+  Python_add_library(rapidjson MODULE ${PYRJ_SRC})
 else()
-  Python3_add_library(rapidjson MODULE ${CMAKE_CURRENT_SOURCE_DIR}/rapidjson.cpp)
+  Python3_add_library(rapidjson MODULE ${PYRJ_SRC})
+endif()
+
+if (PYRJ_ALTERNATE_MODULE)
+  add_dependencies(rapidjson alt_rapidjson)
+  target_include_directories(
+    rapidjson PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
 endif()
 
 target_include_directories(rapidjson PUBLIC ${RAPIDJSON_INCLUDE_DIRS})
