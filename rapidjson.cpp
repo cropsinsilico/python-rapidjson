@@ -22,6 +22,7 @@
 #include <vector>
 
 #define RAPIDJSON_FORCE_IMPORT_ARRAY
+#define PYRJ_TWO_PHASE_INIT
 // #define YGG_ENSURE_PY_GIL
 #include "rapidjson/pyrj.h"
 #include "rapidjson/reader.h"
@@ -32,7 +33,6 @@
 #include "rapidjson/error/en.h"
 #include "units.cpp"
 #include "geometry.cpp"
-
 
 using namespace rapidjson;
 
@@ -3381,6 +3381,22 @@ PythonAccept(
             return false;
         ASSERT_VALID_SIZE(l);
         handler->String(jsonStr, (SizeType) l, true);
+    // } else if (PyObject_IsInstance(object, (PyObject*)&Units_Type)) {
+    // 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+    // 	UnitsObject* v = (UnitsObject*) object;
+    // 	Value* x = new Value();
+    // 	std::string unitsS = v->units->str();
+    // 	x->SetString(unitsS.c_str(),
+    // 		     static_cast<SizeType>(unitsS.length()),
+    // 		     allocator);
+    // 	bool ret = x->Accept(*handler);
+    // 	delete x;
+    // 	if (!ret) {
+    // 	    PyObject* cls_name = PyObject_GetAttrString((PyObject*)(object->ob_type),
+    // 							"__name__");
+    // 	    PyErr_Format(PyExc_TypeError, "Error serializing %s", PyUnicode_AsUTF8(cls_name));
+    // 	}
+    // 	return ret;
     } else if (PyObject_IsInstance(object, (PyObject*)&QuantityArray_Type)) {
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	QuantityArrayObject* v = (QuantityArrayObject*) object;
@@ -6619,64 +6635,155 @@ normalize(PyObject*, PyObject* args, PyObject* kwargs)
 // Module //
 ////////////
 
+// #define MAKE_SUBMODULE_VIA_PYTHON
+
 static PyObject*
-add_submodule(PyObject* m, const char* cname, PyModuleDef* module_def) {
-    PyObject *name = PyUnicode_FromString(cname);
-    if (name == NULL)
-	return NULL;
-    // Mock a ModuleSpec object just good enough for PyModule_FromDefAndSpec():
-    // an object with just a name attribute.
-    //
-    // _imp.__spec__ is overridden by importlib._bootstrap._instal() anyway.
-// #ifdef _PyNamespace_New
-//     PyObject *attrs = Py_BuildValue("{sO}", "name", name);
-//     if (attrs == NULL)
-// 	return NULL;
-//     PyObject *spec = _PyNamespace_New(attrs);
-//     Py_DECREF(attrs);
-// #else
-    PyObject* importlib = PyImport_ImportModule("importlib");
+get_submodule_spec(PyObject* name, PyObject* path) {
+    PyObject *importlib = NULL, *machinery = NULL, *util = NULL,
+	*args = NULL, *kwargs = NULL, *spec = NULL,
+	*ExtensionFileLoader = NULL, *spec_from_loader_func = NULL,
+	*loader = NULL, *ModuleSpecCls = NULL;
+    importlib = PyImport_ImportModule("importlib");
     if (importlib == NULL)
-	return NULL;
-    PyObject* machinery = PyObject_GetAttrString(importlib, "machinery");
-    Py_DECREF(importlib);
-    if (machinery == NULL)
-	return NULL;
-    PyObject* ModuleSpecCls = PyObject_GetAttrString(machinery, "ModuleSpec");
-    Py_DECREF(machinery);
-    if (ModuleSpecCls == NULL)
-	return NULL;
-    PyObject* args = PyTuple_Pack(2, name, Py_None);
+	goto cleanup;
+    machinery = PyObject_GetAttrString(importlib, "machinery");
+    util = PyObject_GetAttrString(importlib, "util");
+    Py_CLEAR(importlib);
+    if (machinery == NULL || util == NULL)
+	goto cleanup;
+#ifdef MAKE_SUBMODULE_VIA_PYTHON
+    ExtensionFileLoader = PyObject_GetAttrString(machinery,
+						 "ExtensionFileLoader");
+    if (ExtensionFileLoader == NULL)
+	goto cleanup;
+    spec_from_loader_func = PyObject_GetAttrString(util,
+						   "spec_from_loader");
+    Py_CLEAR(util);
+    if (spec_from_loader_func == NULL)
+	goto cleanup;
+    args = PyTuple_Pack(2, name, path);
     if (args == NULL)
-	return NULL;
-    PyObject* spec = PyObject_Call(ModuleSpecCls, args, NULL);
-    Py_DECREF(ModuleSpecCls);
-    Py_DECREF(args);
-// #endif
-    Py_DECREF(name);
-    if (spec == NULL)
-	return NULL;
-    PyObject* submodule = PyModule_FromDefAndSpec(module_def, spec);
-    Py_DECREF(spec);
-    if (submodule == NULL)
-	return NULL;
-    if (PyModule_ExecDef(submodule, module_def) < 0)
-	return NULL;
-    Py_INCREF(submodule);
-    if (PyModule_AddObject(m, cname, submodule) < 0) {
-	Py_DECREF(submodule);
-	return NULL;
+	goto cleanup;
+    loader = PyObject_Call(ExtensionFileLoader, args, kwargs);
+    Py_CLEAR(args);
+    Py_CLEAR(kwargs);
+    Py_CLEAR(ExtensionFileLoader);
+    if (loader == NULL)
+	goto cleanup;
+    args = PyTuple_Pack(2, name, loader);
+    if (args == NULL)
+	goto cleanup;
+    spec = PyObject_Call(spec_from_loader_func, args, kwargs);
+    Py_CLEAR(args);
+    Py_CLEAR(kwargs);
+    Py_CLEAR(spec_from_loader_func);
+#else
+    Py_CLEAR(util);
+    ModuleSpecCls = PyObject_GetAttrString(machinery, "ModuleSpec");
+    if (ModuleSpecCls == NULL)
+	goto cleanup;
+    Py_CLEAR(machinery);
+    args = PyTuple_Pack(2, name, Py_None);
+    if (args == NULL)
+	goto cleanup;
+    kwargs = PyDict_New();
+    if (kwargs == NULL)
+	goto cleanup;
+    // parent = PyUnicode_FromString("rapidjson");
+    // if (parent == NULL)
+    //   goto cleanup;
+    // if (PyDict_SetItemString(kwargs, "parent", parent) < 0)
+    //   goto cleanup;
+    // Py_CLEAR(parent);
+    if (PyDict_SetItemString(kwargs, "origin", path) < 0)
+	goto cleanup;
+    if (PyDict_SetItemString(kwargs, "is_package", Py_False) < 0)
+	goto cleanup;
+    spec = PyObject_Call(ModuleSpecCls, args, kwargs);
+    if (spec == NULL) {
+	PyErr_Print();
     }
-    PyObject *moduleDict = PyImport_GetModuleDict();
-    if (moduleDict == NULL)
-	return NULL;
+    Py_CLEAR(ModuleSpecCls);
+    Py_CLEAR(args);
+    Py_CLEAR(kwargs);
+#endif
+cleanup:
+    Py_XDECREF(ExtensionFileLoader);
+    Py_XDECREF(spec_from_loader_func);
+    Py_XDECREF(loader);
+    Py_XDECREF(ModuleSpecCls);
+    Py_XDECREF(importlib);
+    Py_XDECREF(machinery);
+    Py_XDECREF(util);
+    Py_XDECREF(args);
+    Py_XDECREF(kwargs);
+    return spec;
+}
+
+bool
+set_attr_if_unset(PyObject* m, const std::string& attr, PyObject* value) {
+    if (PyObject_HasAttrString(m, attr.c_str())) {
+	PyObject* existing = PyObject_GetAttrString(m, attr.c_str());
+	if (existing != Py_None)
+	    return true;
+    }
+    if (PyObject_SetAttrString(m, attr.c_str(), value) < 0)
+	return false;
+    return true;
+}
+
+static PyObject*
+add_submodule(PyObject* m, const char* cname, PyObject* module_base) {
+    PyObject *name = NULL, *spec = NULL, *submodule = NULL,
+	*rapidjson_file = NULL, *moduleDict = NULL, *out = NULL;
+    PyModuleDef* module_def = NULL;
     char fullname[200] = "";
     int n = snprintf(fullname, 200, "rapidjson.%s", cname);
     if ((n < 0) || (n > 200))
 	return NULL;
+#ifdef PYRJ_TWO_PHASE_INIT
+    module_def = (PyModuleDef*)module_base;
+    name = PyUnicode_FromString(fullname);
+    if (name == NULL)
+	goto cleanup;
+    rapidjson_file = PyModule_GetFilenameObject(m);
+    if (rapidjson_file == NULL)
+	goto cleanup;
+    spec = get_submodule_spec(name, rapidjson_file);
+    Py_CLEAR(name);
+    if (spec == NULL)
+	goto cleanup;
+    submodule = PyModule_FromDefAndSpec(module_def, spec);
+    if (submodule == NULL)
+	goto cleanup;
+    if (!set_attr_if_unset(submodule, "__file__", rapidjson_file))
+	goto cleanup;
+    Py_CLEAR(rapidjson_file);
+    if (!set_attr_if_unset(submodule, "__spec__", spec))
+	goto cleanup;
+    Py_CLEAR(spec);
+    Py_INCREF(submodule);
+    if (PyModule_ExecDef(submodule, module_def) < 0)
+	goto cleanup;
+#else
+    Py_INCREF(module_base);
+    submodule = module_base;
+#endif
+    if (PyModule_AddObject(m, cname, submodule) < 0) {
+	Py_DECREF(submodule);
+	goto cleanup;
+    }
+    moduleDict = PyImport_GetModuleDict();
+    if (moduleDict == NULL)
+	goto cleanup;
     if (PyDict_SetItemString(moduleDict, fullname, submodule) < 0)
-	return NULL;
-    return submodule;
+	goto cleanup;
+    out = submodule;
+cleanup:
+    Py_XDECREF(name);
+    Py_XDECREF(spec);
+    Py_XDECREF(rapidjson_file);
+    return out;
 }
 
 
@@ -7020,7 +7127,7 @@ module_exec(PyObject* m)
     PyObject* units_submodule_def = PyInit_units();
     if (units_submodule_def == NULL)
 	return -1;
-    units_submodule = add_submodule(m, "units", (PyModuleDef*)units_submodule_def);
+    units_submodule = add_submodule(m, "units", units_submodule_def);
     if (units_submodule == NULL) {
 	Py_DECREF(units_submodule_def);
 	return -1;
@@ -7029,7 +7136,7 @@ module_exec(PyObject* m)
     PyObject* geom_submodule_def = PyInit_geom();
     if (geom_submodule_def == NULL)
 	return -1;
-    geom_submodule = add_submodule(m, "geometry", (PyModuleDef*)geom_submodule_def);
+    geom_submodule = add_submodule(m, "geometry", geom_submodule_def);
     if (geom_submodule == NULL) {
 	Py_DECREF(geom_submodule_def);
 	return -1;
@@ -7039,19 +7146,25 @@ module_exec(PyObject* m)
 }
 
 
+#ifdef PYRJ_TWO_PHASE_INIT
 static struct PyModuleDef_Slot slots[] = {
     {Py_mod_exec, (void*) module_exec},
     {0, NULL}
 };
+#endif
 
 
-static PyModuleDef module = {
+static PyModuleDef rj_module = {
     PyModuleDef_HEAD_INIT,      /* m_base */
     "rapidjson",                /* m_name */
     PyDoc_STR("Fast, simple JSON encoder and decoder. Based on RapidJSON C++ library."),
     0,                          /* m_size */
     functions,                  /* m_methods */
+#ifdef PYRJ_TWO_PHASE_INIT
     slots,                      /* m_slots */
+#else
+    NULL,                       /* m_slots */
+#endif
     NULL,                       /* m_traverse */
     NULL,                       /* m_clear */
     NULL                        /* m_free */
@@ -7063,6 +7176,15 @@ PyInit_rapidjson()
 {
     import_array();
     import_umath();
-    PyObject* out = PyModuleDef_Init(&module);
-    return out;
+#ifdef PYRJ_TWO_PHASE_INIT
+    return PyModuleDef_Init(&rj_module);
+#else
+    PyObject *module = PyModule_Create(&rj_module);
+    if (module == NULL) return NULL;
+    if (module_exec(module) != 0) {
+	Py_DECREF(module);
+	return NULL;
+    }
+    return module;
+#endif
 }

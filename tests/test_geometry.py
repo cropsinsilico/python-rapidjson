@@ -12,6 +12,15 @@ import numpy as np
 from rapidjson import geometry
 
 
+def test_class_import_geometry():
+    from rapidjson.geometry import Ply, ObjWavefront  # noqa: F401
+
+
+def test_submodule_geometry():
+    assert geometry.__spec__
+    assert geometry.__file__
+
+
 @pytest.fixture(scope="session")
 def mesh_base():
     r"""Complex example 3D structure dictionary of arrays."""

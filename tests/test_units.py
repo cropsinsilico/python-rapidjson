@@ -13,6 +13,15 @@ import rapidjson as rj
 from rapidjson import units
 
 
+def test_class_import_units():
+    from rapidjson.units import Units, Quantity, QuantityArray  # noqa: F401
+
+
+def test_submodule_units():
+    assert units.__spec__
+    assert units.__file__
+
+
 # ///////////
 # // Units //
 # ///////////

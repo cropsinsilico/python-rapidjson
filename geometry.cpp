@@ -3681,10 +3681,12 @@ geom_module_exec(PyObject* m)
 }
 
 
+#ifdef PYRJ_TWO_PHASE_INIT
 static struct PyModuleDef_Slot geom_slots[] = {
     {Py_mod_exec, (void*) geom_module_exec},
     {0, NULL}
 };
+#endif
 
 
 static PyModuleDef geom_module = {
@@ -3693,7 +3695,11 @@ static PyModuleDef geom_module = {
     PyDoc_STR("Structures for handling 3D geometries."),
     0,                          /* m_size */
     geom_functions,             /* m_methods */
+#ifdef PYRJ_TWO_PHASE_INIT
     geom_slots,                 /* m_slots */
+#else
+    NULL,                       /* m_slots */
+#endif
     NULL,                       /* m_traverse */
     NULL,                       /* m_clear */
     NULL                        /* m_free */
@@ -3703,5 +3709,15 @@ static PyModuleDef geom_module = {
 PyMODINIT_FUNC
 PyInit_geom()
 {
+#ifdef PYRJ_TWO_PHASE_INIT
     return PyModuleDef_Init(&geom_module);
+#else
+    PyObject *module = PyModule_Create(&geom_module);
+    if (module == NULL) return NULL;
+    if (geom_module_exec(module) != 0) {
+	Py_DECREF(module);
+	return NULL;
+    }
+    return module;
+#endif
 }

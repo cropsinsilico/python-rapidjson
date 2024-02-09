@@ -2651,10 +2651,12 @@ units_module_exec(PyObject* m)
 }
 
 
+#ifdef PYRJ_TWO_PHASE_INIT
 static struct PyModuleDef_Slot units_slots[] = {
     {Py_mod_exec, (void*) units_module_exec},
     {0, NULL}
 };
+#endif
 
 
 static PyModuleDef units_module = {
@@ -2663,7 +2665,11 @@ static PyModuleDef units_module = {
     PyDoc_STR("Fast, simple units library developed for yggdrasil."),
     0,                          /* m_size */
     units_functions,            /* m_methods */
+#ifdef PYRJ_TWO_PHASE_INIT
     units_slots,                /* m_slots */
+#else
+    NULL,                       /* m_slots */
+#endif
     NULL,                       /* m_traverse */
     NULL,                       /* m_clear */
     NULL                        /* m_free */
@@ -2673,5 +2679,15 @@ static PyModuleDef units_module = {
 PyMODINIT_FUNC
 PyInit_units()
 {
+#ifdef PYRJ_TWO_PHASE_INIT
     return PyModuleDef_Init(&units_module);
+#else
+    PyObject *module = PyModule_Create(&units_module);
+    if (module == NULL) return NULL;
+    if (units_module_exec(module) != 0) {
+	Py_DECREF(module);
+	return NULL;
+    }
+    return module;
+#endif
 }
