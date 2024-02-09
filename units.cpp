@@ -358,18 +358,25 @@ static void units_dealloc(PyObject* self)
 }
 
 
-static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject*)
+static PyObject* units_new(PyTypeObject* type, PyObject* args, PyObject* kwargs)
 {
-    PyObject* exprObject;
+    PyObject* exprObject = NULL;
+    static char const* kwlist[] = {
+	"units",
+	NULL
+    };
 
-    if (!PyArg_ParseTuple(args, "O:Units", &exprObject))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|O:Units",
+				     (char**) kwlist, &exprObject))
 	return NULL;
 
     std::string exprStr_;
     const char* exprStr = 0;
     const UnitsObject* other = NULL;
 
-    if (PyBytes_Check(exprObject)) {
+    if (exprObject == NULL) {
+	exprStr = "";
+    } else if (PyBytes_Check(exprObject)) {
         exprStr = PyBytes_AsString(exprObject);
         if (exprStr == NULL)
             return NULL;

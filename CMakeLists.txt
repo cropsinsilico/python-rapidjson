@@ -22,6 +22,7 @@ if (PYRJ_ALTERNATE_MODULE)
   [=[
   file(READ "${SOURCE}" TEXT)
   string(REPLACE "\"rapidjson\"" "\"${PYRJ_ALTERNATE_MODULE}\"" TEXT "${TEXT}")
+  string(REPLACE "\"rapidjson." "\"${PYRJ_ALTERNATE_MODULE}." TEXT "${TEXT}")
   file(WRITE "${TARGET}" "${TEXT}")
   ]=])
 
@@ -40,6 +41,7 @@ if (PYRJ_ALTERNATE_MODULE)
       COMMAND "${CMAKE_COMMAND}"
               "-DSOURCE=${src}"
 	      "-DTARGET=${dst}"
+	      "-DPYRJ_ALTERNATE_MODULE=${PYRJ_ALTERNATE_MODULE}"
 	      -P "${CMAKE_CURRENT_BINARY_DIR}/replace_module.cmake"
 	      DEPENDS "${src}" "${CMAKE_CURRENT_BINARY_DIR}/replace_module.cmake")
   endforeach()
