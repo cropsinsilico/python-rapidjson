@@ -3381,22 +3381,22 @@ PythonAccept(
             return false;
         ASSERT_VALID_SIZE(l);
         handler->String(jsonStr, (SizeType) l, true);
-    // } else if (PyObject_IsInstance(object, (PyObject*)&Units_Type)) {
-    // 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
-    // 	UnitsObject* v = (UnitsObject*) object;
-    // 	Value* x = new Value();
-    // 	std::string unitsS = v->units->str();
-    // 	x->SetString(unitsS.c_str(),
-    // 		     static_cast<SizeType>(unitsS.length()),
-    // 		     allocator);
-    // 	bool ret = x->Accept(*handler);
-    // 	delete x;
-    // 	if (!ret) {
-    // 	    PyObject* cls_name = PyObject_GetAttrString((PyObject*)(object->ob_type),
-    // 							"__name__");
-    // 	    PyErr_Format(PyExc_TypeError, "Error serializing %s", PyUnicode_AsUTF8(cls_name));
-    // 	}
-    // 	return ret;
+    } else if (PyObject_IsInstance(object, (PyObject*)&Units_Type)) {
+	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
+	UnitsObject* v = (UnitsObject*) object;
+	Value* x = new Value();
+	std::string unitsS = v->units->str();
+	x->SetString(unitsS.c_str(),
+		     static_cast<SizeType>(unitsS.length()),
+		     allocator);
+	bool ret = x->Accept(*handler);
+	delete x;
+	if (!ret) {
+	    PyObject* cls_name = PyObject_GetAttrString((PyObject*)(object->ob_type),
+							"__name__");
+	    PyErr_Format(PyExc_TypeError, "Error serializing %s", PyUnicode_AsUTF8(cls_name));
+	}
+	return ret;
     } else if (PyObject_IsInstance(object, (PyObject*)&QuantityArray_Type)) {
 	RAPIDJSON_DEFAULT_ALLOCATOR allocator;
 	QuantityArrayObject* v = (QuantityArrayObject*) object;
