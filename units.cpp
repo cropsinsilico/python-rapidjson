@@ -1990,6 +1990,29 @@ static PyObject* quantity_array__array_function__(PyObject* self, PyObject* c_ar
 	result = PyObject_Call(result_type, result_args, NULL);
 	Py_DECREF(result_args);
     } else if (result != NULL && result_units_list != NULL) {
+	if (PyTuple_Check(result) && (PyTuple_Size(result) == PyList_Size(result_units_list))) {
+	    tmp = result;
+	    result = PyList_New(PyTuple_Size(tmp));
+	    if (result == NULL) {
+		Py_CLEAR(tmp);
+		goto cleanup;
+	    }
+	    for (i = 0; i < PyTuple_Size(tmp); i++) {
+		PyObject* iresult = PyTuple_GetItem(tmp, i);
+		if (iresult == NULL) {
+		    Py_CLEAR(tmp);
+		    Py_CLEAR(result);
+		    goto cleanup;
+		}
+		Py_INCREF(iresult);
+		if (PyList_SetItem(result, i, iresult) < 0) {
+		    Py_CLEAR(tmp);
+		    Py_CLEAR(result);
+		    goto cleanup;
+		}
+	    }
+	    Py_CLEAR(tmp);
+	}
 	if (!PyList_Check(result) || (PyList_Size(result_units_list) != PyList_Size(result))) {
 	    Py_DECREF(result);
 	    result = NULL;
