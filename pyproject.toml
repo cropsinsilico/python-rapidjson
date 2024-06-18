@@ -3,8 +3,9 @@ requires = [
   "scikit-build-core",
   "setuptools_scm",
   "hatch-fancy-pypi-readme",
-  "oldest-supported-numpy; python_version<='3.12'",
-  "numpy; python_version>='3.12'",
+  "numpy",
+  # "oldest-supported-numpy; python_version<='3.12'",
+  # "numpy; python_version>='3.12'",
 ]
 build-backend = "scikit_build_core.build"
 
