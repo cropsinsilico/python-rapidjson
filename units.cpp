@@ -2405,6 +2405,9 @@ static PyObject* _get_array(PyObject* item) {
 		    } else {
 			goto fail;
 		    }
+		} else if (PyLong_CheckExact(item)) {
+		    dtype = PyArray_DescrFromType(NPY_DEFAULT_INT);
+		    scalar_data = (void*)&il;
 		} else if (sizeof(long) == sizeof(int32_t)) {
 		    dtype = PyArray_DescrFromType(NPY_INT32);
 		    scalar_data = (void*)&il;
