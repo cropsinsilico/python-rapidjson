@@ -2407,7 +2407,15 @@ static PyObject* _get_array(PyObject* item) {
 		    }
 		} else if (PyLong_CheckExact(item)) {
 		    dtype = PyArray_DescrFromType(NPY_DEFAULT_INT);
-		    scalar_data = (void*)&il;
+		    if (PyDataType_ELSIZE(dtype) == sizeof(long)) {
+			scalar_data = (void*)&il;
+		    } else if (PyDataType_ELSIZE(dtype) == sizeof(long long)) {
+			ill = PyLong_AsLongLongAndOverflow(item, &overflow);
+			if (ill == -1) {
+			    goto fail;
+			}
+			scalar_data = (void*)&ill;
+		    }
 		} else if (sizeof(long) == sizeof(int32_t)) {
 		    dtype = PyArray_DescrFromType(NPY_INT32);
 		    scalar_data = (void*)&il;
