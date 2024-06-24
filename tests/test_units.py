@@ -565,9 +565,45 @@ class TestQuantityArray(TestQuantity):
         assert np.array_equal(res, exp)
         assert res.units == exp.units
 
-    @pytest.mark.skip("Only for scalar")
-    def test_normalize(self):
-        pass
+    # @pytest.mark.skip("Only for scalar")
+    def test_normalize(self, cls, dumps, loads):
+        value = np.array(
+            [(b'one', 1, 1.), (b'two', 2, 2.), (b'three', 3, 3.)],
+            dtype=[('name', 'S5'), ('count', '<i4'), ('size', '<f8')])
+        schema = {'items': [{'precision': 5,
+                             'subtype': 'string',
+                             'title': 'name',
+                             'type': '1darray'},
+                            {'precision': 4,
+                             'subtype': 'int',
+                             'title': 'count',
+                             'type': '1darray',
+                             'units': 'μmol'},
+                            {'precision': 8,
+                             'subtype': 'float',
+                             'title': 'size',
+                             'type': '1darray',
+                             'units': 'cm'}],
+                  'type': 'array'}
+        normalized = [
+            cls(np.array([b'one', b'two', b'three'], dtype=[('name', 'S5')])),
+            cls(np.array([1, 2, 3], dtype=[('count', '<i4')]), 'μmol'),
+            cls(np.array([1., 2., 3.], dtype=[('size', '<f8')]), 'cm')]
+        normalizer = rj.Normalizer(schema)
+
+        def assert_equal_struct(x, y):
+            assert len(x) == len(y)
+            for ix, iy in zip(x, y):
+                np.array_equal(ix, iy)
+
+        x = normalizer(value)
+        assert_equal_struct(x, normalized)
+        assert_equal_struct(normalizer.normalize(value), normalized)
+        normalizer.validate(x)
+
+        dumped = dumps(x)
+        loaded = loads(dumped)
+        assert_equal_struct(loaded, x)
 
 
 class TestUnyt:
