@@ -1671,7 +1671,7 @@ static PyObject* ply_append(PyObject* self, PyObject* args, PyObject*) {
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
     if (!PyObject_IsInstance(solf, (PyObject*)&Ply_Type)) {
-	PyErr_Format(PyExc_TypeError, "Can only append other Ply instances.");
+	PyErr_Format(PyExc_TypeError, "Can only append other Ply instances, not %S.", Py_TYPE(solf));
 	return NULL;
     }
 
@@ -3180,7 +3180,7 @@ static PyObject* objwavefront_append(PyObject* self, PyObject* args, PyObject*) 
     if (!PyArg_ParseTuple(args, "O:", &solf))
 	return NULL;
     if (!PyObject_IsInstance(solf, (PyObject*)&ObjWavefront_Type)) {
-	PyErr_Format(PyExc_TypeError, "Can only append other ObjWavefront instances.");
+	PyErr_Format(PyExc_TypeError, "Can only append other ObjWavefront instances, not %S.", Py_TYPE(solf));
 	return NULL;
     }
 
