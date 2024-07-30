@@ -46,13 +46,6 @@ using namespace rapidjson;
 #endif // YGGDRASIL_DONT_MANAGE_PYTHON_GIL
 
 
-#ifdef YGG_ENSURE_PY_GIL
-static int _dont_thread_rapidjson_calls = 0;
-#else // YGG_ENSURE_PY_GIL
-static int _dont_thread_rapidjson_calls = 1;
-#endif // YGG_ENSURE_PY_GIL
-
-
 /* On some MacOS combo, using Py_IS_XXX() macros does not work (see
    https://github.com/python-rapidjson/python-rapidjson/issues/78).
    OTOH, MSVC < 2015 does not have std::isxxx() (see
@@ -5212,14 +5205,9 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
     }
     bool accept;
 
-    if (_dont_thread_rapidjson_calls &&
-	(validator.RequiresPython() || d.RequiresPython())) {
-	accept = d.Accept(validator);
-    } else {
-	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
-	accept = d.Accept(validator);
-	YGGDRASIL_PYGIL_ALLOW_THREADS_END
-    }
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
+    accept = d.Accept(validator);
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
 
     if (!cleanup_python_globals(d, isPythonDoc))
 	return NULL;
@@ -5473,14 +5461,9 @@ static PyObject* validator_check_schema(PyObject*, PyObject* args, PyObject* kwa
     SchemaValidator validator(metaschema);
     bool accept;
 
-    if (_dont_thread_rapidjson_calls &&
-	(validator.RequiresPython() || d.RequiresPython())) {
-	accept = d.Accept(validator);
-    } else {
-	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
-	accept = d.Accept(validator);
-	YGGDRASIL_PYGIL_ALLOW_THREADS_END
-    }
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
+    accept = d.Accept(validator);
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
 
     if (!accept) {
 	set_validation_error(validator);
@@ -5536,14 +5519,9 @@ static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwa
     SchemaValidator v2(*((ValidatorObject*)validator2)->schema);
     bool accept;
     
-    if (_dont_thread_rapidjson_calls &&
-	(v1.RequiresPython() || v2.RequiresPython())) {
-	accept = v1.Compare(v2);
-    } else {
-	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
-	accept = v1.Compare(v2);
-	YGGDRASIL_PYGIL_ALLOW_THREADS_END
-    }
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
+    accept = v1.Compare(v2);
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
 
     Py_DECREF(validator2);
     if (!accept) {
@@ -6272,14 +6250,9 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
     }
     bool accept;
 
-    if (_dont_thread_rapidjson_calls &&
-	(normalizer.RequiresPython() || d.RequiresPython())) {
-	accept = d.Accept(normalizer);
-    } else {
-	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
-	accept = d.Accept(normalizer);
-	YGGDRASIL_PYGIL_ALLOW_THREADS_END
-    }
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
+    accept = d.Accept(normalizer);
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
 
     if (!accept) {
 	if (isEmptyString) {
@@ -6465,14 +6438,9 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
     SchemaValidator validator(*(v->schema));
     bool accept;
 
-    if (_dont_thread_rapidjson_calls &&
-	(validator.RequiresPython() || d.RequiresPython())) {
-	accept = d.Accept(validator);
-    } else {
-	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
-	accept = d.Accept(validator);
-	YGGDRASIL_PYGIL_ALLOW_THREADS_END
-    }
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
+    accept = d.Accept(validator);
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
 
     if (!accept) {
 	if (isEmptyString) {
@@ -6513,14 +6481,9 @@ static PyObject* normalizer_compare(PyObject* self, PyObject* args, PyObject* kw
     SchemaValidator v1(*((NormalizerObject*)self)->schema);
     SchemaValidator v2(*((NormalizerObject*)validator2)->schema);
     bool accept;
-    if (_dont_thread_rapidjson_calls &&
-	(v1.RequiresPython() || v2.RequiresPython())) {
-	accept = v1.Compare(v2);
-    } else {
-	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
-	accept = v1.Compare(v2);
-	YGGDRASIL_PYGIL_ALLOW_THREADS_END
-    }
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
+    accept = v1.Compare(v2);
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
     Py_DECREF(validator2);
     if (!accept) {
 	if (dontRaise) {
