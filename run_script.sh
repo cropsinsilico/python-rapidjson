@@ -31,5 +31,5 @@ if [ -n "$WITH_ASAN" ]; then
     export DYLD_INSERT_LIBRARIES=$(clang -print-file-name=libclang_rt.asan_osx_dynamic.dylib)
 fi
 
-python -m pytest -svx tests/ --doctest-glob="docs/*.rst" --doctest-modules docs
+python -m pytest -sv tests/ --doctest-glob="docs/*.rst" --doctest-modules docs
 # make -C docs doctest -e PYTHON=$(python -c "import sys; import pathlib; print(pathlib.Path(sys.executable).resolve(strict=True))") -e DYLD_INSERT_LIBRARIES=$(clang -print-file-name=libclang_rt.asan_osx_dynamic.dylib)
