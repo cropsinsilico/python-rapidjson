@@ -62,6 +62,7 @@ if (NOT DEFAULT_RAPIDJSON_INCLUDE_DIRS)
              OUTPUT_VARIABLE DEFAULT_RAPIDJSON_INCLUDE_DIRS)
 endif()
 
+option(YGGDRASIL_DONT_MANAGE_PYTHON_GIL "Disable any handling of the Python GIL" OFF)
 option(YGGDRASIL_DISABLE_PYTHON_C_API "Disable the Python C API" OFF)
 option(YGG_BUILD_ASAN "Build with address sanitizer (gcc/clang)" OFF)
 option(YGG_BUILD_UBSAN "Build with undefined behavior sanitizer (gcc/clang)" OFF)

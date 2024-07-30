@@ -37,6 +37,15 @@
 using namespace rapidjson;
 
 
+#ifdef YGGDRASIL_DONT_MANAGE_PYTHON_GIL
+#define YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
+#define YGGDRASIL_PYGIL_ALLOW_THREADS_END
+#else // YGGDRASIL_DONT_MANAGE_PYTHON_GIL
+#define YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN global_PyThreadState();
+#define YGGDRASIL_PYGIL_ALLOW_THREADS_END global_PyThreadState(true);
+#endif // YGGDRASIL_DONT_MANAGE_PYTHON_GIL
+
+
 #ifdef YGG_ENSURE_PY_GIL
 static int _dont_thread_rapidjson_calls = 0;
 #else // YGG_ENSURE_PY_GIL
@@ -3573,9 +3582,9 @@ static bool python2document(PyObject* jsonObject, Document& d,
 	if (isPythonDoc)
 	    isPythonDoc[0] = true;
     } else {
-        Py_BEGIN_ALLOW_THREADS
+        YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
         error = d.Parse(jsonStr).HasParseError();
-        Py_END_ALLOW_THREADS
+        YGGDRASIL_PYGIL_ALLOW_THREADS_END
 	if ((error || d.IsNumber()) && (expectsString || allowsString)) {
 	    error = (!PythonAccept(&d, jsonObject, numberMode, datetimeMode,
 				   uuidMode, bytesMode, iterableMode,
@@ -5020,10 +5029,10 @@ static void set_validation_error(ValidatorObject& validator,
     StringBuffer sptr;
     StringBuffer dptr;
 
-    Py_BEGIN_ALLOW_THREADS
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
     validator.GetInvalidSchemaPointer().StringifyUriFragment(sptr);
     validator.GetInvalidDocumentPointer().StringifyUriFragment(dptr);
-    Py_END_ALLOW_THREADS
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
 
     StringBuffer sb;
     PrettyWriter<StringBuffer> w(sb);
@@ -5207,9 +5216,9 @@ static PyObject* validator_call(PyObject* self, PyObject* args, PyObject* kwargs
 	(validator.RequiresPython() || d.RequiresPython())) {
 	accept = d.Accept(validator);
     } else {
-	Py_BEGIN_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
 	accept = d.Accept(validator);
-	Py_END_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_END
     }
 
     if (!cleanup_python_globals(d, isPythonDoc))
@@ -5449,12 +5458,12 @@ static PyObject* validator_check_schema(PyObject*, PyObject* args, PyObject* kwa
 
     Document d_meta;
     bool error = false;
-    Py_BEGIN_ALLOW_THREADS
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
     if (jsonStandard)
 	error = d_meta.Parse(get_standard_metaschema<char>()).HasParseError();
     else
 	error = d_meta.Parse(get_metaschema<char>()).HasParseError();
-    Py_END_ALLOW_THREADS
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
     if (error) {
 	PyErr_SetString(decode_error, "Invalid metaschema");
 	return NULL;
@@ -5468,9 +5477,9 @@ static PyObject* validator_check_schema(PyObject*, PyObject* args, PyObject* kwa
 	(validator.RequiresPython() || d.RequiresPython())) {
 	accept = d.Accept(validator);
     } else {
-	Py_BEGIN_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
 	accept = d.Accept(validator);
-	Py_END_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_END
     }
 
     if (!accept) {
@@ -5531,9 +5540,9 @@ static PyObject* validator_compare(PyObject* self, PyObject* args, PyObject* kwa
 	(v1.RequiresPython() || v2.RequiresPython())) {
 	accept = v1.Compare(v2);
     } else {
-	Py_BEGIN_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
 	accept = v1.Compare(v2);
-	Py_END_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_END
     }
 
     Py_DECREF(validator2);
@@ -5848,9 +5857,9 @@ rj_get_metaschema(PyObject*, PyObject* args, PyObject* kwargs)
 
     Document d_meta;
     bool error = false;
-    Py_BEGIN_ALLOW_THREADS
+    YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
     error = d_meta.Parse(get_metaschema<char>()).HasParseError();
-    Py_END_ALLOW_THREADS
+    YGGDRASIL_PYGIL_ALLOW_THREADS_END
     if (error) {
 	PyErr_SetString(decode_error, "Invalid metaschema");
 	return NULL;
@@ -6267,9 +6276,9 @@ static PyObject* normalizer_call(PyObject* self, PyObject* args, PyObject* kwarg
 	(normalizer.RequiresPython() || d.RequiresPython())) {
 	accept = d.Accept(normalizer);
     } else {
-	Py_BEGIN_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
 	accept = d.Accept(normalizer);
-	Py_END_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_END
     }
 
     if (!accept) {
@@ -6460,9 +6469,9 @@ static PyObject* normalizer_validate(PyObject* self, PyObject* args, PyObject* k
 	(validator.RequiresPython() || d.RequiresPython())) {
 	accept = d.Accept(validator);
     } else {
-	Py_BEGIN_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
 	accept = d.Accept(validator);
-	Py_END_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_END
     }
 
     if (!accept) {
@@ -6508,9 +6517,9 @@ static PyObject* normalizer_compare(PyObject* self, PyObject* args, PyObject* kw
 	(v1.RequiresPython() || v2.RequiresPython())) {
 	accept = v1.Compare(v2);
     } else {
-	Py_BEGIN_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_BEGIN
 	accept = v1.Compare(v2);
-	Py_END_ALLOW_THREADS
+	YGGDRASIL_PYGIL_ALLOW_THREADS_END
     }
     Py_DECREF(validator2);
     if (!accept) {
